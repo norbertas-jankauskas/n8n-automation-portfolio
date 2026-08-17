@@ -1,0 +1,273 @@
+{
+  "name": "Project 4 - Support Agent",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "id": "b43e28cc-de11-4b27-8f11-f2c361ce8357",
+      "name": "When clicking \u2018Execute workflow\u2019"
+    },
+    {
+      "parameters": { "url": "={{ $json.url }}", "options": {} },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [800, -160],
+      "id": "17f74238-eb29-4e4c-9a6f-b870acafcf0e",
+      "name": "HTTP Request - Scrape Endpoint Doc"
+    },
+    {
+      "parameters": { "options": {} },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [448, -160],
+      "id": "cd7e99bb-2efe-433b-ac00-863d9963177a",
+      "name": "Loop Over Items - Batch Endpoints"
+    },
+    {
+      "parameters": {
+        "jsCode": "const slugs = [\n  \"simple-price\", \"simple-token-price\",\n  \"coins-markets\", \"coins-id\", \"coins-contract-address\", \"coins-id-tickers\", \"coins-id-history\",\n  \"coins-id-market-chart\", \"coins-id-market-chart-range\", \"contract-address-market-chart\", \"contract-address-market-chart-range\", \"coins-id-ohlc\",\n  \"coins-categories-list\", \"coins-categories\",\n  \"exchanges-list\", \"exchanges\", \"exchanges-id\", \"exchanges-id-tickers\", \"exchanges-id-volume-chart\"\n];\n\nreturn slugs.map(slug => ({\n  json: {\n    slug: slug,\n    url: `https://docs.coingecko.com/reference/${slug}.md`\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, -160],
+      "id": "301149f9-ce6d-4797-99ed-013b84527db3",
+      "name": "Code In JavaScript - Generate Endpoint List"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.voyageai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpMultipleHeadersAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"input\": [\"What is Bitcoin?\"],\n  \"model\": \"voyage-3.5\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [224, 112],
+      "id": "936a0c9b-ee4c-43a8-916f-fb1fa0027977",
+      "name": "HTTP Request - Voyage Embeddings Test",
+      "credentials": { "httpMultipleHeadersAuth": { "id": "Hzw22KXSg5YxCGdK", "name": "Multiple Headers Auth account" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const originalItems = $('Code In JavaScript - Generate Endpoint List').all();\nconst scrapedItems = $input.all();\n\nconst chunks = [];\n\nfor (let i = 0; i < scrapedItems.length; i++) {\n  let content = scrapedItems[i].json.data;\n  \n  // Un-escape literal \\n sequences into real line breaks FIRST\n  content = content.replace(/\\\\n/g, '\\n');\n  \n  // Now strip the repeated boilerplate preamble (whitespace-tolerant)\n  content = content.replace(\n    /^>\\s*##\\s*Documentation Index[\\s\\S]*?before exploring further\\.\\s*/,\n    ''\n  );\n  \n  chunks.push({\n    json: {\n      endpoint_slug: originalItems[i].json.slug,\n      source_url: originalItems[i].json.url.replace('.md', ''),\n      content: content.trim()\n    }\n  });\n}\n\nreturn chunks;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [800, -432],
+      "id": "003f5972-f627-454f-add8-f44f7d143a17",
+      "name": "Code in JavaScript - Chunk By Endpoint"
+    },
+    {
+      "parameters": { "options": {} },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1072, -432],
+      "id": "659b01a6-c884-46de-af67-c1e5c0b19a11",
+      "name": "Loop Over Items - Batch Chunks for Embedding"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.voyageai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpMultipleHeadersAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ input: [$json.content], model: \"voyage-3.5\" }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [1536, -416],
+      "id": "82a09c8e-799d-474c-bd69-ae1f441e52b6",
+      "name": "HTTP Request - Embed Chunk",
+      "credentials": { "httpMultipleHeadersAuth": { "id": "Hzw22KXSg5YxCGdK", "name": "Multiple Headers Auth account" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const embedding = $json.data[0].embedding;\nconst original = $('Loop Over Items - Batch Chunks for Embedding').item.json;\n\nconst allSlugs = $('Code In JavaScript - Generate Endpoint List').all().map(i => i.json.slug);\nconst pointId = allSlugs.indexOf(original.endpoint_slug) + 1;\n\nreturn [{\n  json: {\n    id: pointId,\n    vector: embedding,\n    payload: {\n      endpoint_slug: original.endpoint_slug,\n      source_url: original.source_url,\n      content: original.content\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1792, -416],
+      "id": "efba2190-7054-4ecc-a203-b6f301e980ae",
+      "name": "Code in JavaScript - Prepare Qdrant Point"
+    },
+    {
+      "parameters": { "amount": 2 },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1328, -416],
+      "id": "e10a120d-a023-4c06-aa2b-4102e3071ae6",
+      "name": "Wait",
+      "webhookId": "YOUR_WEBHOOK_ID"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://localhost:6333/collections/coingecko_docs",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"vectors\": {\n    \"size\": 1024,\n    \"distance\": \"Cosine\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [224, -416],
+      "id": "66bcfc72-0d23-419f-b9a0-b9bdbb71bba1",
+      "name": "HTTP Request - Create Qdrant Collection"
+    },
+    {
+      "parameters": {
+        "jsCode": "const points = $input.all().map(item => item.json);\n\nreturn [{\n  json: {\n    points: points\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1328, -592],
+      "id": "ba012c03-270e-4799-b5be-dc0cdb7abaca",
+      "name": "Code in JavaScript - Combine Points for Upsert"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://localhost:6333/collections/coingecko_docs/points",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [1536, -592],
+      "id": "f52d87ce-40ab-4eaa-b898-990b9d8a3238",
+      "name": "HTTP Request - Upsert to Qdrant"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a support agent for the CoinGecko API, helping developers understand how to use CoinGecko's price and market data endpoints.\n\nYou have three tools available. Use them in this strict order of priority:\n\n1. Knowledge base lookup — ALWAYS try this first for any question about CoinGecko API endpoints, parameters, or usage. This is your primary source of truth.\n\n2. Web search — ONLY use this if the knowledge base does not contain a clear answer to the question.\n\n3. Escalate to human — ONLY use this if BOTH of the following are true:\n   - The knowledge base did not answer the question\n   - Web search did not produce a confident, directly relevant answer\n\nWhen you use the knowledge base or web search successfully, mention which source the answer came from at the end of your response, in one short sentence.\n\nWhen you escalate, tell the user clearly that their question has been flagged for human follow-up, and briefly explain why you couldn't answer it directly.\n\nKeep answers concise and technically accurate. Do not guess or make up endpoint behavior — if you are not confident, escalate rather than answer incorrectly."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [816, 128],
+      "id": "4e8e1f78-922c-4be6-8c1c-8c24b9cbb524",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": { "__rl": true, "value": "claude-sonnet-5", "mode": "list", "cachedResultName": "Claude Sonnet 5" },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.5,
+      "position": [672, 528],
+      "id": "a83f9910-be43-4aaf-a0c0-98b096642ce2",
+      "name": "Anthropic Chat Model",
+      "credentials": { "anthropicApi": { "id": "NAVEs0ypc3OBHZet", "name": "Anthropic account 2" } }
+    },
+    {
+      "parameters": {
+        "description": "Search the CoinGecko API documentation knowledge base for information about specific endpoints, parameters, and usage. Use this first for any question about how to use the CoinGecko API.",
+        "workflowId": {
+          "__rl": true,
+          "value": "5QOz8UGt97gmAZgT",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/5QOz8UGt97gmAZgT",
+          "cachedResultName": "Project 4 - KB Search Tool"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": { "query": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('query', ``, 'string') }}" },
+          "matchingColumns": ["Field Name: query"],
+          "schema": [
+            { "id": "query", "displayName": "query", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [976, 336],
+      "id": "e0700a1a-9349-45b9-bc19-471a602b0dcc",
+      "name": "Call 'Project 4 - KB Search Tool'"
+    },
+    {
+      "parameters": { "options": {} },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [608, 128],
+      "id": "c456f026-0d1f-4155-acd7-d0f489eedc50",
+      "name": "When chat message received",
+      "webhookId": "YOUR_WEBHOOK_ID"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Search the web for current information about the CoinGecko API when the knowledge base does not contain the answer. Use this only after checking the knowledge base first.",
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpMultipleHeadersAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query: $fromAI('search_query', 'The search query to look up on the web'), max_results: 3 }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [1072, 432],
+      "id": "393440b4-a2d0-428f-b98c-a7a758ec17f7",
+      "name": "Web_Search",
+      "credentials": { "httpMultipleHeadersAuth": { "id": "fcAR8lFxmWV1YEqK", "name": "Tavily API" } }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking \u2018Execute workflow\u2019": {
+      "main": [
+        [
+          { "node": "HTTP Request - Voyage Embeddings Test", "type": "main", "index": 0 },
+          { "node": "Code In JavaScript - Generate Endpoint List", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "HTTP Request - Scrape Endpoint Doc": { "main": [[{ "node": "Loop Over Items - Batch Endpoints", "type": "main", "index": 0 }]] },
+    "Loop Over Items - Batch Endpoints": {
+      "main": [
+        [{ "node": "Code in JavaScript - Chunk By Endpoint", "type": "main", "index": 0 }],
+        [{ "node": "HTTP Request - Scrape Endpoint Doc", "type": "main", "index": 0 }]
+      ]
+    },
+    "Code In JavaScript - Generate Endpoint List": { "main": [[{ "node": "Loop Over Items - Batch Endpoints", "type": "main", "index": 0 }]] },
+    "HTTP Request - Voyage Embeddings Test": { "main": [[]] },
+    "Code in JavaScript - Chunk By Endpoint": { "main": [[{ "node": "Loop Over Items - Batch Chunks for Embedding", "type": "main", "index": 0 }]] },
+    "Loop Over Items - Batch Chunks for Embedding": {
+      "main": [
+        [{ "node": "Code in JavaScript - Combine Points for Upsert", "type": "main", "index": 0 }],
+        [{ "node": "Wait", "type": "main", "index": 0 }]
+      ]
+    },
+    "HTTP Request - Embed Chunk": { "main": [[{ "node": "Code in JavaScript - Prepare Qdrant Point", "type": "main", "index": 0 }]] },
+    "Code in JavaScript - Prepare Qdrant Point": { "main": [[{ "node": "Loop Over Items - Batch Chunks for Embedding", "type": "main", "index": 0 }]] },
+    "Wait": { "main": [[{ "node": "HTTP Request - Embed Chunk", "type": "main", "index": 0 }]] },
+    "Code in JavaScript - Combine Points for Upsert": { "main": [[{ "node": "HTTP Request - Upsert to Qdrant", "type": "main", "index": 0 }]] },
+    "Anthropic Chat Model": { "ai_languageModel": [[{ "node": "AI Agent", "type": "ai_languageModel", "index": 0 }]] },
+    "Call 'Project 4 - KB Search Tool'": { "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]] },
+    "When chat message received": { "main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]] },
+    "Web_Search": { "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1", "binaryMode": "separate", "availableInMCP": false },
+  "versionId": "285c3300-dcb6-465b-abba-0ad855a488e4",
+  "meta": { "templateCredsSetupCompleted": true, "instanceId": "YOUR_N8N_INSTANCE_ID" },
+  "nodeGroups": [],
+  "id": "NvRA14J8qv0CFH4O",
+  "tags": []
+}
