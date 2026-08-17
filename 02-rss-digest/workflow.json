@@ -1,0 +1,314 @@
+{
+  "name": "RSS Digest - n8n Project #2 (Complete)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [0, 0],
+      "id": "eb9ce6ce-c4d1-4caa-b923-8ef9ce4809d8",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {"url": "https://www.formula1.com/en/latest/all.xml", "options": {}},
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [176, 80],
+      "id": "1fdd35d9-db6c-4a75-aabd-332a2675272c",
+      "name": "RSS - formula1"
+    },
+    {
+      "parameters": {"url": "http://www.delfi.lt/rss/feeds/lithuania.xml", "options": {}},
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [144, -400],
+      "id": "6e4328f7-c6e8-4123-9225-45ca730fd448",
+      "name": "RSS - delfi"
+    },
+    {
+      "parameters": {"url": "https://www.lrt.lt/?rss", "options": {}},
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [160, -240],
+      "id": "e092baf7-f4f6-46b7-bebd-b0ce9aa111ee",
+      "name": "RSS - lrt"
+    },
+    {
+      "parameters": {"url": "https://www.tv3.lt/rss/sarasas/0", "options": {}},
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [176, -80],
+      "id": "2618923e-f7e2-45f2-8400-4a10c646e389",
+      "name": "RSS - tv3"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+          "conditions": [
+            {
+              "id": "7896586e-223a-4e9f-9904-265984e44d0d",
+              "leftValue": "={{ $json.isoDate }}",
+              "rightValue": "={{ $now.minus({hours: 24}).toISO() }}",
+              "operator": {"type": "dateTime", "operation": "after"}
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [784, -112],
+      "id": "9af56e70-0c65-4420-aae0-2057b443ccfc",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk",
+          "__regex": "https:\\/\\/(?:drive|docs)\\.google\\.com(?:\\/.*|)\\/d\\/([0-9a-zA-Z\\-_]+)(?:\\/.*|)"
+        },
+        "sheetName": {"__rl": true, "value": "Sheet1", "mode": "name"},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [992, -112],
+      "id": "45a04150-4430-459f-bdaf-ea6029e77a5a",
+      "name": "Get row(s) in sheet",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {"googleSheetsOAuth2Api": {"id": "9PKFMcm0HsfKlNyH", "name": "Google Sheets account 2"}}
+    },
+    {
+      "parameters": {"mode": "combine", "fieldsToMatchString": "guid", "joinMode": "keepNonMatches", "outputDataFrom": "input1", "options": {}},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [1376, -336],
+      "id": "056867dc-852a-426b-9686-774323a11486",
+      "name": "Merge - Dedup Check"
+    },
+    {
+      "parameters": {"numberInputs": 4},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [624, -144],
+      "id": "08d7b32b-4366-4c13-b0d2-c7d90f549224",
+      "name": "Merge - Combine Feeds"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+          "conditions": [
+            {
+              "id": "2ea136c9-1ac7-496c-aafc-8afd8a075969",
+              "leftValue": "={{ $json.guid }}",
+              "rightValue": "",
+              "operator": {"type": "string", "operation": "exists", "singleValue": true}
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [1184, -112],
+      "id": "8305a4a5-25e1-401b-ae24-1311c51c09c4",
+      "name": "Filter - Has Guid"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "anthropic-version", "value": "2023-06-01"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: \"claude-sonnet-5\", max_tokens: 4000, tools: [{ name: \"return_digest\", description: \"Return the selected and summarized articles for the digest\", input_schema: { type: \"object\", properties: { articles: { type: \"array\", items: { type: \"object\", properties: { title: { type: \"string\" }, link: { type: \"string\" }, summary: { type: \"string\" }, source: { type: \"string\" }, guid: { type: \"string\" } }, required: [\"title\", \"link\", \"summary\", \"source\", \"guid\"] } } }, required: [\"articles\"] } }], tool_choice: { type: \"tool\", name: \"return_digest\" }, messages: [{ role: \"user\", content: \"You are curating a personal news digest in Lithuanian. Below is a JSON array of candidate articles, each with 'source' and 'guid' fields. Select the 10 most newsworthy and broadly interesting ones. Write a 2-3 sentence summary in Lithuanian for each, and preserve the original 'source' and 'guid' values unchanged.\\n\\nArticles:\\n\" + JSON.stringify($json.articles) }] }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [1776, -336],
+      "id": "52431851-1d12-49a9-834e-be1458a0b6c9",
+      "name": "Claude - Rank & Summarize",
+      "credentials": {"httpHeaderAuth": {"id": "CiBjeeMzsWnJuFgY", "name": "Header Auth account"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const toolUse = $input.first().json.content.find(c => c.type === 'tool_use');\nlet articles = toolUse.input.articles;\nif (typeof articles === 'string') {\n  articles = JSON.parse(articles);\n}\nreturn articles.map(article => ({ json: article }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1952, -336],
+      "id": "4397f7ff-3bf4-43a2-9992-0df1455393bd",
+      "name": "Parse Claude Response"
+    },
+    {
+      "parameters": {"aggregate": "aggregateAllItemData", "destinationFieldName": "articles", "options": {}},
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [1568, -336],
+      "id": "0ca5702c-904c-49d4-81a8-1ac889806420",
+      "name": "Aggregate - All Articles"
+    },
+    {
+      "parameters": {"aggregate": "aggregateAllItemData", "destinationFieldName": "items", "options": {}},
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [2192, -128],
+      "id": "fac6cbfb-3985-48be-bcda-14333d8aba7f",
+      "name": "Aggregate - Digest Items"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.first().json.items;\nconst today = new Date().toLocaleDateString('lt-LT');\n\nlet html = `<h2>RSS Naujienų Suvestinė - ${today}</h2>`;\n\nfor (const item of items) {\n  html += `\n    <div style=\"margin-bottom: 20px;\">\n      <div style=\"font-size: 12px; color: #888; text-transform: uppercase;\">${item.source}</div>\n      <h3><a href=\"${item.link}\">${item.title}</a></h3>\n      <p>${item.summary}</p>\n    </div>\n  `;\n}\n\nreturn [{ json: { html: html } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2416, -128],
+      "id": "7c0ab381-bc76-4818-bb44-90ef1203cfd2",
+      "name": "Build Email HTML"
+    },
+    {
+      "parameters": {
+        "fromEmail": "your.email@example.com",
+        "toEmail": "your.email@example.com",
+        "subject": "=RSS Digest — {{ $now.format('yyyy-MM-dd') }}",
+        "html": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2624, -128],
+      "id": "786d8998-59fb-4f41-8961-a154bc62a2ed",
+      "name": "Send an Email",
+      "webhookId": "YOUR_WEBHOOK_ID",
+      "credentials": {"smtp": {"id": "gc31qD7ooYKM5go2", "name": "SMTP account"}}
+    },
+    {
+      "parameters": {"assignments": {"assignments": [{"id": "89c15bc8-ae18-4d62-be28-2454a61716b8", "name": "source", "value": "delfi.lt", "type": "string"}]}, "includeOtherFields": true, "options": {}},
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [368, -400],
+      "id": "b800dae8-e26e-4311-8d4a-1df826eefe64",
+      "name": "Tag - delfi"
+    },
+    {
+      "parameters": {"assignments": {"assignments": [{"id": "31f2f50d-3911-4da0-9466-1a0cdfdcc9a5", "name": "source", "value": "lrt.lt", "type": "string"}]}, "includeOtherFields": true, "options": {}},
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [368, -240],
+      "id": "fbdde6a4-8516-4ffc-b921-602b7a949624",
+      "name": "Tag - lrt"
+    },
+    {
+      "parameters": {"assignments": {"assignments": [{"id": "9da356d4-0430-4b32-9b0e-8e4c38fb489e", "name": "source", "value": "tv3.lt", "type": "string"}]}, "includeOtherFields": true, "options": {}},
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [368, -80],
+      "id": "5a2ed757-1b40-4cc7-81ea-43641d7f4130",
+      "name": "Tag - tv3"
+    },
+    {
+      "parameters": {"assignments": {"assignments": [{"id": "918684bf-4159-4ebe-9c63-c3ab732d3993", "name": "source", "value": "formula1.com", "type": "string"}]}, "includeOtherFields": true, "options": {}},
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [368, 80],
+      "id": "e9f6a720-991d-4ac8-8d37-d62c1cb7141c",
+      "name": "Tag - formula1"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "RSS Digest Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {"guid": "={{ $json.guid }}", "date_sent": "={{ $now.format('yyyy-MM-dd') }}"},
+          "matchingColumns": [],
+          "schema": [
+            {"id": "guid", "displayName": "guid", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "date_sent", "displayName": "date_sent", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true}
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [2192, -336],
+      "id": "a4e7421c-4516-4d79-ba4b-3261df758777",
+      "name": "Log Sent Articles",
+      "credentials": {"googleSheetsOAuth2Api": {"id": "9PKFMcm0HsfKlNyH", "name": "Google Sheets account 2"}}
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {"main": [[{"node": "RSS - lrt", "type": "main", "index": 0}, {"node": "RSS - delfi", "type": "main", "index": 0}, {"node": "RSS - tv3", "type": "main", "index": 0}, {"node": "RSS - formula1", "type": "main", "index": 0}]]},
+    "RSS - lrt": {"main": [[{"node": "Tag - lrt", "type": "main", "index": 0}]]},
+    "RSS - delfi": {"main": [[{"node": "Tag - delfi", "type": "main", "index": 0}]]},
+    "RSS - tv3": {"main": [[{"node": "Tag - tv3", "type": "main", "index": 0}]]},
+    "RSS - formula1": {"main": [[{"node": "Tag - formula1", "type": "main", "index": 0}]]},
+    "Filter": {"main": [[{"node": "Get row(s) in sheet", "type": "main", "index": 0}, {"node": "Merge - Dedup Check", "type": "main", "index": 0}]]},
+    "Get row(s) in sheet": {"main": [[{"node": "Filter - Has Guid", "type": "main", "index": 0}]]},
+    "Merge - Combine Feeds": {"main": [[{"node": "Filter", "type": "main", "index": 0}]]},
+    "Filter - Has Guid": {"main": [[{"node": "Merge - Dedup Check", "type": "main", "index": 1}]]},
+    "Merge - Dedup Check": {"main": [[{"node": "Aggregate - All Articles", "type": "main", "index": 0}]]},
+    "Claude - Rank & Summarize": {"main": [[{"node": "Parse Claude Response", "type": "main", "index": 0}]]},
+    "Parse Claude Response": {"main": [[{"node": "Log Sent Articles", "type": "main", "index": 0}, {"node": "Aggregate - Digest Items", "type": "main", "index": 0}]]},
+    "Aggregate - All Articles": {"main": [[{"node": "Claude - Rank & Summarize", "type": "main", "index": 0}]]},
+    "Aggregate - Digest Items": {"main": [[{"node": "Build Email HTML", "type": "main", "index": 0}]]},
+    "Build Email HTML": {"main": [[{"node": "Send an Email", "type": "main", "index": 0}]]},
+    "Tag - delfi": {"main": [[{"node": "Merge - Combine Feeds", "type": "main", "index": 0}]]},
+    "Tag - lrt": {"main": [[{"node": "Merge - Combine Feeds", "type": "main", "index": 1}]]},
+    "Tag - tv3": {"main": [[{"node": "Merge - Combine Feeds", "type": "main", "index": 2}]]},
+    "Tag - formula1": {"main": [[{"node": "Merge - Combine Feeds", "type": "main", "index": 3}]]},
+    "Log Sent Articles": {"main": [[]]}
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "Europe/Vilnius",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "1b129f4c-be8e-4ed9-aafa-35fbde668515",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "YOUR_N8N_INSTANCE_ID"
+  },
+  "nodeGroups": [],
+  "id": "bsZnlypswEQ8ohgP",
+  "tags": []
+}
