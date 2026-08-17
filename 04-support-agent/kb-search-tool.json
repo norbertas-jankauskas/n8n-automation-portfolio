@@ -1,0 +1,83 @@
+{
+  "name": "Project 4 - KB Search Tool",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            { "name": "query" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "id": "75bb2192-40be-4a44-ab0b-0abd5a6d52f9",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.voyageai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpMultipleHeadersAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ input: [$json.query], model: \"voyage-3.5\" }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [224, 0],
+      "id": "272cfcc2-e98b-4c17-8c60-68722b9de39c",
+      "name": "HTTP Request - Embed Query",
+      "credentials": {
+        "httpMultipleHeadersAuth": { "id": "Hzw22KXSg5YxCGdK", "name": "Multiple Headers Auth account" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:6333/collections/coingecko_docs/points/search",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ vector: $json.data[0].embedding, limit: 4, with_payload: true }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [448, 0],
+      "id": "79ca2140-f27a-455b-9280-052c652d6e71",
+      "name": "HTTP Request - Search Qdrant"
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $json.result;\n\nif (!results || results.length === 0) {\n  return [{\n    json: {\n      output: \"No relevant documentation found in the knowledge base for this query.\"\n    }\n  }];\n}\n\nconst formatted = results.map((r, i) => {\n  const p = r.payload;\n  return `Result ${i + 1} (source: ${p.source_url}):\\n${p.content}`;\n}).join('\\n\\n---\\n\\n');\n\nreturn [{\n  json: {\n    output: formatted\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [672, 0],
+      "id": "7ff747f0-3509-4108-ad6b-72a259038a56",
+      "name": "Code in JavaScript - Format Results"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [[{ "node": "HTTP Request - Embed Query", "type": "main", "index": 0 }]]
+    },
+    "HTTP Request - Embed Query": {
+      "main": [[{ "node": "HTTP Request - Search Qdrant", "type": "main", "index": 0 }]]
+    },
+    "HTTP Request - Search Qdrant": {
+      "main": [[{ "node": "Code in JavaScript - Format Results", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1", "binaryMode": "separate", "availableInMCP": false },
+  "versionId": "ca6bbbb4-d41c-4ad9-ba10-07f3183dcc64",
+  "meta": { "instanceId": "YOUR_N8N_INSTANCE_ID" },
+  "nodeGroups": [],
+  "id": "5QOz8UGt97gmAZgT",
+  "tags": []
+}
