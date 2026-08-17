@@ -1,0 +1,457 @@
+{
+  "name": "Project 3 - gmail-tracker-n8n",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": { "item": [{ "mode": "everyMinute" }] },
+        "simple": false,
+        "filters": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [0, 0],
+      "id": "973ba1d1-8574-4893-9d93-6c1b68d69af5",
+      "name": "Gmail Trigger",
+      "credentials": { "gmailOAuth2": { "id": "v3uB3rZcy1asVeOL", "name": "Gmail account 2" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "anthropic-version", "value": "2023-06-01 " }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-5\",\n  \"max_tokens\": 1024,\n  \"tools\": [\n    {\n      \"name\": \"extract_email_data\",\n      \"input_schema\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"email_type\": {\n            \"type\": \"string\",\n            \"enum\": [\"receipt\", \"job_application\", \"unrecognized\"]\n          },\n          \"confidence\": {\n            \"type\": \"string\",\n            \"enum\": [\"high\", \"medium\", \"low\"]\n          },\n          \"receipt_data\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"vendor\": { \"type\": [\"string\", \"null\"] },\n              \"amount\": { \"type\": [\"number\", \"null\"] },\n              \"currency\": { \"type\": [\"string\", \"null\"] },\n              \"category\": { \"type\": [\"string\", \"null\"] },\n              \"date\": { \"type\": [\"string\", \"null\"] }\n            }\n          },\n          \"job_application_data\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"company\": { \"type\": [\"string\", \"null\"] },\n              \"role\": { \"type\": [\"string\", \"null\"] },\n              \"status\": {\n                \"type\": [\"string\", \"null\"],\n                \"enum\": [\"applied\", \"interview\", \"rejected\", \"offer\", null]\n              }\n            }\n          }\n        },\n        \"required\": [\"email_type\", \"confidence\"]\n      }\n    }\n  ],\n  \"tool_choice\": { \"type\": \"tool\", \"name\": \"extract_email_data\" },\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Classify this email as a receipt, job application, or unrecognized, and extract the relevant fields. Email subject: {{ $json.subject }}\\n\\nEmail body: {{ $json.text.replace(/[\\r\\n]+/g, ' ') }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [464, -16],
+      "id": "902d2030-ef48-418a-b6e6-dfa28f4e41ab",
+      "name": "HTTP Request",
+      "credentials": { "httpHeaderAuth": { "id": "3RD8S7P7Y7vsJp2A", "name": "Anthropic API Key" } }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "ef848663-4c7f-4417-9233-591648f86c56",
+              "leftValue": "={{ $json.labelIds.includes(\"YOUR_GMAIL_LABEL_ID_1\") || $json.labelIds.includes(\"YOUR_GMAIL_LABEL_ID_2\") }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [224, 0],
+      "id": "83ef2372-e75a-4a89-b310-bce81c139cae",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.content[0].input.email_type }}",
+                    "rightValue": "=receipt",
+                    "operator": { "type": "string", "operation": "equals" },
+                    "id": "19376060-43bc-41cd-b5cf-43eeaf9073e4"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Receipt"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+                "conditions": [
+                  {
+                    "id": "542aa305-68ad-494a-b774-84356fe285a6",
+                    "leftValue": "={{ $json.content[0].input.email_type }}",
+                    "rightValue": "job_application",
+                    "operator": { "type": "string", "operation": "equals", "name": "filter.operator.equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Job Application"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+                "conditions": [
+                  {
+                    "id": "d403c40d-598c-49db-895f-cab08c03174f",
+                    "leftValue": "={{ $json.content[0].input.confidence }}",
+                    "rightValue": "low",
+                    "operator": { "type": "string", "operation": "equals", "name": "filter.operator.equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Needs Review"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+                "conditions": [
+                  {
+                    "id": "36bb32f3-d7d3-4832-90c5-1a648650aa36",
+                    "leftValue": "={{ $json.content[0].input.email_type }}",
+                    "rightValue": "unrecognized",
+                    "operator": { "type": "string", "operation": "equals", "name": "filter.operator.equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Needs Review"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [688, -48],
+      "id": "6f47a512-0841-4056-841c-3bab42501cdb",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Gmail Tracker - n8n Project #3",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1292182154,
+          "mode": "list",
+          "cachedResultName": "Job Applications",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=1292182154"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $now.format('yyyy-MM-dd') }}",
+            "company": "={{ $json.content[0].input.job_application_data.company }}",
+            "role": "={{ $json.content[0].input.job_application_data.role }}",
+            "status": "={{ $json.content[0].input.job_application_data.status }}",
+            "source_email_subject": "={{ $('Gmail Trigger').item.json.subject }}",
+            "gmail_message_id": "={{ $('Gmail Trigger').item.json.id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "date", "displayName": "date", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "company", "displayName": "company", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "role", "displayName": "role", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "status", "displayName": "status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "source_email_subject", "displayName": "source_email_subject", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "gmail_message_id", "displayName": "gmail_message_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1440, -48],
+      "id": "b2baf063-37e9-4c24-b681-31dad3ef3ede",
+      "name": "Append row in sheet - Job Application",
+      "credentials": { "googleSheetsOAuth2Api": { "id": "UQRK2iyTWa959jwC", "name": "Google Sheets account 3" } }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Gmail Tracker - n8n Project #3",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Receipts",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $json.content[0].input.receipt_data.date }}",
+            "vendor": "={{ $json.content[0].input.receipt_data.vendor }}",
+            "amount": "={{ $json.content[0].input.receipt_data.amount }}",
+            "currency": "={{ $json.content[0].input.receipt_data.currency }}",
+            "category": "={{ $json.content[0].input.receipt_data.category }}",
+            "gmail_message_id": "={{ $('Gmail Trigger').item.json.id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "date", "displayName": "date", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "vendor", "displayName": "vendor", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "amount", "displayName": "amount", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "currency", "displayName": "currency", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "category", "displayName": "category", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "gmail_message_id", "displayName": "gmail_message_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1424, -256],
+      "id": "f11c08a7-4240-47dc-99b4-b2f0ebc8046c",
+      "name": "Append row in sheet - receipts",
+      "credentials": { "googleSheetsOAuth2Api": { "id": "UQRK2iyTWa959jwC", "name": "Google Sheets account 3" } }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Gmail Tracker - n8n Project #3",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1687255656,
+          "mode": "list",
+          "cachedResultName": "Needs Review",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=1687255656"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $now.format('yyyy-MM-dd') }}",
+            "email_type": "={{ $json.content[0].input.email_type }}",
+            "confidence": "={{ $json.content[0].input.confidence }}",
+            "subject": "={{ $('Gmail Trigger').item.json.subject }}",
+            "gmail_message_id": "={{ $('Gmail Trigger').item.json.id }}",
+            "raw_snippet": "={{ $('Gmail Trigger').item.json.text.substring(0, 200) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "date", "displayName": "date", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "email_type", "displayName": "email_type", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "confidence", "displayName": "confidence", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "subject", "displayName": "subject", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "gmail_message_id", "displayName": "gmail_message_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "raw_snippet", "displayName": "raw_snippet", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1440, 176],
+      "id": "f90d1f35-f3f5-46fc-a8ed-81cee47ed01f",
+      "name": "Append row in sheet - Needs Review",
+      "credentials": { "googleSheetsOAuth2Api": { "id": "UQRK2iyTWa959jwC", "name": "Google Sheets account 3" } }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Gmail Tracker - n8n Project #3",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Receipts",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=0"
+        },
+        "filtersUI": { "values": [{ "lookupColumn": "gmail_message_id", "lookupValue": "={{ $('Gmail Trigger').item.json.id }}" }] },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1024, -240],
+      "id": "313f6e97-6631-4d58-b2f6-9c953e5f62aa",
+      "name": "Lookup - Receipts Dedup Check",
+      "alwaysOutputData": true,
+      "credentials": { "googleSheetsOAuth2Api": { "id": "UQRK2iyTWa959jwC", "name": "Google Sheets account 3" } }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "c9631b44-357c-4c53-8e83-f06eeab266f6",
+              "leftValue": "={{ $json.gmail_message_id }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "notExists", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1200, -240],
+      "id": "b9b8da59-c851-4ca6-af5f-713467abfb45",
+      "name": "If - Not Duplicate (Receipts)"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Gmail Tracker - n8n Project #3",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1292182154,
+          "mode": "list",
+          "cachedResultName": "Job Applications",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=1292182154"
+        },
+        "filtersUI": { "values": [{ "lookupColumn": "gmail_message_id", "lookupValue": "={{ $('Gmail Trigger').item.json.id }}" }] },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1040, -32],
+      "id": "d133c18b-3c1c-41e6-b16e-d4818e365a6d",
+      "name": "Lookup - Job Application Dedup Check",
+      "alwaysOutputData": true,
+      "credentials": { "googleSheetsOAuth2Api": { "id": "UQRK2iyTWa959jwC", "name": "Google Sheets account 3" } }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "efe07e92-c45c-4e78-b1a4-41625c23dc49",
+              "leftValue": "={{ $json.gmail_message_id }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "notExists", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1216, -32],
+      "id": "d793ed7f-2290-4f1d-9cdf-cec3f392f934",
+      "name": "If - Not Duplicate (Job Application)"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Gmail Tracker - n8n Project #3",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1687255656,
+          "mode": "list",
+          "cachedResultName": "Needs Review",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=1687255656"
+        },
+        "filtersUI": { "values": [{ "lookupColumn": "gmail_message_id", "lookupValue": "={{ $('Gmail Trigger').item.json.id }}" }] },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1056, 176],
+      "id": "00632693-3334-4c88-a5a0-eaaee7500061",
+      "name": "Lookup - Needs Review Dedup Check",
+      "alwaysOutputData": true,
+      "credentials": { "googleSheetsOAuth2Api": { "id": "UQRK2iyTWa959jwC", "name": "Google Sheets account 3" } }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "b8ad94cf-dd0b-482d-98ae-cbf0e56da151",
+              "leftValue": "={{ $json.gmail_message_id }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "notExists", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1232, 176],
+      "id": "e81db363-7b7a-4668-80ed-e8f275c7dc07",
+      "name": "If - Not Duplicate (Needs Review)"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": { "main": [[{ "node": "If", "type": "main", "index": 0 }]] },
+    "If": { "main": [[{ "node": "HTTP Request", "type": "main", "index": 0 }]] },
+    "HTTP Request": { "main": [[{ "node": "Switch", "type": "main", "index": 0 }]] },
+    "Switch": {
+      "main": [
+        [{ "node": "Lookup - Receipts Dedup Check", "type": "main", "index": 0 }],
+        [{ "node": "Lookup - Job Application Dedup Check", "type": "main", "index": 0 }],
+        [{ "node": "Lookup - Needs Review Dedup Check", "type": "main", "index": 0 }],
+        [{ "node": "Append row in sheet - Needs Review", "type": "main", "index": 0 }]
+      ]
+    },
+    "Lookup - Receipts Dedup Check": { "main": [[{ "node": "If - Not Duplicate (Receipts)", "type": "main", "index": 0 }]] },
+    "If - Not Duplicate (Receipts)": { "main": [[{ "node": "Append row in sheet - receipts", "type": "main", "index": 0 }]] },
+    "Lookup - Job Application Dedup Check": { "main": [[{ "node": "If - Not Duplicate (Job Application)", "type": "main", "index": 0 }]] },
+    "If - Not Duplicate (Job Application)": { "main": [[{ "node": "Append row in sheet - Job Application", "type": "main", "index": 0 }]] },
+    "Lookup - Needs Review Dedup Check": { "main": [[{ "node": "If - Not Duplicate (Needs Review)", "type": "main", "index": 0 }]] },
+    "If - Not Duplicate (Needs Review)": { "main": [[{ "node": "Append row in sheet - Needs Review", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1", "binaryMode": "separate", "availableInMCP": false },
+  "versionId": "5aea2a36-db80-4cba-bc5e-fbaf5f755e93",
+  "meta": { "templateCredsSetupCompleted": true, "instanceId": "YOUR_N8N_INSTANCE_ID" },
+  "nodeGroups": [],
+  "id": "nIsTibA0oq0fCMDl",
+  "tags": []
+}
