@@ -1,0 +1,726 @@
+{
+  "name": "Project 5 - Monitor - Error Handler",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "e77d20d2-7763-41c0-9603-73a8acbf6cca",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-api-key",
+              "value": "YOUR_ANTHROPIC_API_KEY_HERE"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 500,\n  \"tools\": [\n    {\n      \"name\": \"diagnose_incident\",\n      \"description\": \"Structured diagnosis of an n8n workflow failure\",\n      \"input_schema\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"error_category\": {\n            \"type\": \"string\",\n            \"enum\": [\"rate_limit\", \"auth\", \"upstream_5xx\", \"schema_invalid\", \"timeout\", \"unknown\"]\n          },\n          \"root_cause\": {\"type\": \"string\"},\n          \"confidence\": {\"type\": \"string\", \"enum\": [\"high\", \"medium\", \"low\"]},\n          \"recommended_action\": {\"type\": \"string\"},\n          \"safe_to_auto_retry\": {\"type\": \"boolean\"}\n        },\n        \"required\": [\"error_category\", \"root_cause\", \"confidence\", \"recommended_action\", \"safe_to_auto_retry\"]\n      }\n    }\n  ],\n  \"tool_choice\": {\"type\": \"tool\", \"name\": \"diagnose_incident\"},\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Workflow: {{ $('Error Trigger').item.json.workflow.name }}\\nFailing node: {{ $('Error Trigger').item.json.execution.lastNodeExecuted }}\\nError message: {{ $('Error Trigger').item.json.execution.error.message }}\\n\\nDiagnose this n8n execution failure. Known historical failure patterns in this environment: Gmail Trigger silently deregisters its cron on any node edit while active; Anthropic API calls fail silently if the header-auth credential Name field doesn't exactly match the expected header key; nested JSON schemas are unreliable under Haiku tool-use. Use these as context if relevant, otherwise diagnose from the error itself.\"\n    }\n  ]\n}",
+        "options": {
+          "response": {
+            "response": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        432,
+        0
+      ],
+      "id": "cae493dd-81ea-4e0f-ab1b-12fbd985687d",
+      "name": "Claude Diagnosis",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "31b7e213-d0e7-4539-bb01-92afb03e8d2d",
+              "name": "error_category",
+              "value": "={{ $json.content.find(c => c.type === 'tool_use').input.error_category }}",
+              "type": "string"
+            },
+            {
+              "id": "7da01a26-6753-4f14-89bb-bdf173a2dfc5",
+              "name": "root_cause",
+              "value": "={{ $json.content.find(c => c.type === 'tool_use').input.root_cause }}",
+              "type": "string"
+            },
+            {
+              "id": "d4b8fff0-42b9-4409-8534-6b3f03400e5f",
+              "name": "confidence",
+              "value": "={{ $json.content.find(c => c.type === 'tool_use').input.confidence }}",
+              "type": "string"
+            },
+            {
+              "id": "cf4e9bd6-ad31-4f06-8780-24a6a15db33a",
+              "name": "=recommended_action",
+              "value": "={{ $json.content.find(c => c.type === 'tool_use').input.recommended_action }}",
+              "type": "string"
+            },
+            {
+              "id": "f96b9e11-648e-48fb-8898-149a2ed5f5c7",
+              "name": "safe_to_auto_retry",
+              "value": "={{ $json.content.find(c => c.type === 'tool_use').input.safe_to_auto_retry }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        880,
+        0
+      ],
+      "id": "86738f8d-1887-44c0-8c93-d887cc7a5f0f",
+      "name": "Extract Diagnosis"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "executions",
+          "mode": "list",
+          "cachedResultName": "executions"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "retry_count": 0,
+            "duration_ms": 0,
+            "workflow_name": "={{ $json.workflow.name }}",
+            "execution_id": "={{ $json.execution.id }}",
+            "started_at": "={{ $now }}",
+            "status": "=failed",
+            "failing_node": "={{ $json.execution.lastNodeExecuted }}",
+            "error_message": "={{ $json.execution.error.message }}",
+            "error_category": "=unknown"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "workflow_name",
+              "displayName": "workflow_name",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "started_at",
+              "displayName": "started_at",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ended_at",
+              "displayName": "ended_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "failing_node",
+              "displayName": "failing_node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error_category",
+              "displayName": "error_category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "retry_count",
+              "displayName": "retry_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "duration_ms",
+              "displayName": "duration_ms",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        224,
+        0
+      ],
+      "id": "3072374d-4c21-4338-8991-cbf10673bba2",
+      "name": "Insert Execution",
+      "credentials": {
+        "postgres": {
+          "id": "C0CBPQVulwgpBmDk",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "executions",
+          "mode": "list",
+          "cachedResultName": "executions"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Insert Execution').item.json.id }}",
+            "error_category": "={{ $if($('Extract Diagnosis').isExecuted, $('Extract Diagnosis').item.json.error_category, $('Build Fallback Diagnosis').item.json.error_category) }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "workflow_name",
+              "displayName": "workflow_name",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "started_at",
+              "displayName": "started_at",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ended_at",
+              "displayName": "ended_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "failing_node",
+              "displayName": "failing_node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "error_category",
+              "displayName": "error_category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "retry_count",
+              "displayName": "retry_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "duration_ms",
+              "displayName": "duration_ms",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "eaff2884-d506-42f8-92c5-055a1048a89a",
+      "name": "Update Execution Category",
+      "credentials": {
+        "postgres": {
+          "id": "C0CBPQVulwgpBmDk",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "incidents",
+          "mode": "list",
+          "cachedResultName": "incidents"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "safe_to_auto_retry": "={{ (() => { try { return $('Extract Diagnosis').item.json.safe_to_auto_retry } catch(e) { return $('Build Fallback Diagnosis').item.json.safe_to_auto_retry } })() }}",
+            "execution_id": "={{ $('Insert Execution').item.json.id }}",
+            "ai_diagnosis": "={{ (() => { try { return $('Extract Diagnosis').item.json.root_cause } catch(e) { return $('Build Fallback Diagnosis').item.json.root_cause } })() }}\n",
+            "root_cause": "={{ (() => { try { return $('Extract Diagnosis').item.json.root_cause } catch(e) { return $('Build Fallback Diagnosis').item.json.root_cause } })() }}\n",
+            "confidence": "={{ (() => { try { return $('Extract Diagnosis').item.json.confidence } catch(e) { return $('Build Fallback Diagnosis').item.json.confidence } })() }}",
+            "recommended_action": "={{ (() => { try { return $('Extract Diagnosis').item.json.recommended_action } catch(e) { return $('Build Fallback Diagnosis').item.json.recommended_action } })() }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_diagnosis",
+              "displayName": "ai_diagnosis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "root_cause",
+              "displayName": "root_cause",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recommended_action",
+              "displayName": "recommended_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "safe_to_auto_retry",
+              "displayName": "safe_to_auto_retry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "resolved",
+              "displayName": "resolved",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1312,
+        0
+      ],
+      "id": "739be297-eac6-4c5d-9469-d127eeb24967",
+      "name": "Insert Incident",
+      "credentials": {
+        "postgres": {
+          "id": "C0CBPQVulwgpBmDk",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9b88b205-6932-4cf0-92e0-747c17fb6e2b",
+              "name": "error_category",
+              "value": "unknown",
+              "type": "string"
+            },
+            {
+              "id": "74533744-dc56-429c-bc40-8ce0b9884d21",
+              "name": "root_cause",
+              "value": "={{ $json.error.message || 'Claude API call failed - no error detail available' }}",
+              "type": "string"
+            },
+            {
+              "id": "9915b063-e9ab-409f-b0e7-58cb71ec0061",
+              "name": "confidence",
+              "value": "low",
+              "type": "string"
+            },
+            {
+              "id": "41ef6797-8d20-4a6b-9e1c-a596a7eb9826",
+              "name": "recommended_action",
+              "value": "Diagnosis unavailable due to API failure. Manually inspect execution logs for this incident.",
+              "type": "string"
+            },
+            {
+              "id": "be259f01-e972-40cf-8415-f05e5d888835",
+              "name": "safe_to_auto_retry",
+              "value": "=false",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        880,
+        -208
+      ],
+      "id": "a1e4ac5b-0430-49b1-88da-3526f18d85af",
+      "name": "Build Fallback Diagnosis"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "84730dc5-f926-4442-afe9-dd67b6580b21",
+              "leftValue": "={{ $json.error ? 'error' : 'ok' }}",
+              "rightValue": "=error",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        640,
+        0
+      ],
+      "id": "80c59d93-6696-4688-a1d3-673524fb4ae6",
+      "name": "Check Claude Response"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Insert Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Diagnosis": {
+      "main": [
+        [
+          {
+            "node": "Check Claude Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Insert Execution": {
+      "main": [
+        [
+          {
+            "node": "Claude Diagnosis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Diagnosis": {
+      "main": [
+        [
+          {
+            "node": "Update Execution Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Execution Category": {
+      "main": [
+        [
+          {
+            "node": "Insert Incident",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Fallback Diagnosis": {
+      "main": [
+        [
+          {
+            "node": "Update Execution Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Claude Response": {
+      "main": [
+        [
+          {
+            "node": "Build Fallback Diagnosis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract Diagnosis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "WxcZZP7jWQSFipvR",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "35396119-daf7-441b-8e03-9b53b64ac8ea",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9e6f4df8840acb8841babe98ec4e0d62cf10470b6cdfe2b7297868759580207d"
+  },
+  "nodeGroups": [],
+  "id": "WxcZZP7jWQSFipvR",
+  "tags": []
+}
