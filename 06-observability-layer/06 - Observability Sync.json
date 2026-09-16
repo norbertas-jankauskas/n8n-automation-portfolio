@@ -1,0 +1,562 @@
+{
+  "name": "06 - Observability Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const execution = $input.first().json;\nconst runData = execution.data.resultData.runData;\nconst traceId = execution.id;\nconst events = [];\n\nfunction truncate(obj, maxLen = 2000) {\n  const str = typeof obj === 'string' ? obj : JSON.stringify(obj);\n  return str.length > maxLen ? str.slice(0, maxLen) + '...[truncated]' : obj;\n}\n// Trace-level event\nevents.push({\n  id: (Math.random().toString(36).slice(2) + Date.now().toString(36)),\n  type: \"trace-create\",\n  timestamp: new Date().toISOString(),\n  body: {\n    id: traceId,\n    name: execution.workflowId,\n    timestamp: execution.startedAt,\n    input: execution.customData?.input_when_chat_message_received || null,\n    output: execution.customData?.response_ai_agent || null,\n    metadata: { sessionId: execution.customData?.session_id || null }\n  }\n});\n\n// One observation per node run\nfor (const nodeName in runData) {\n  const runs = runData[nodeName];\n  runs.forEach((run, idx) => {\n    const isModel = nodeName.toLowerCase().includes(\"chat model\");\n    const startTime = new Date(run.startTime).toISOString();\n    const endTime = new Date(run.startTime + run.executionTime).toISOString();\n\n    const data = run.data || {};\n    const port = data.main || data.ai_tool || data.ai_languageModel || data.ai_memory || [];\n    const item = port?.[0]?.[0]?.json || null;\n\n    const body = {\n      id: `${traceId}-${nodeName}-${idx}`.replace(/\\s+/g, \"_\"),\n      traceId: traceId,\n      name: nodeName,\n      startTime: startTime,\n      endTime: endTime,\n      input: truncate(item),\n      output: truncate(item),\n      level: run.executionStatus === \"success\" ? \"DEFAULT\" : \"ERROR\"\n    };\n\n    if (isModel && item) {\n      const usage = item.tokenUsage || item.usage_metadata || item.usage || null;\n      if (usage) {\n        body.usage = {\n          input: usage.promptTokens || usage.input_tokens || usage.prompt_tokens || 0,\n          output: usage.completionTokens || usage.output_tokens || usage.completion_tokens || 0,\n          total: usage.totalTokens || usage.total_tokens || 0\n        };\n      }\n    }\n\n    events.push({\n      id: (Math.random().toString(36).slice(2) + Date.now().toString(36)),\n      type: isModel ? \"generation-create\" : \"span-create\",\n      timestamp: startTime,\n      body: body\n    });\n  });\n}\n\nreturn [{ json: { batch: events } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "79ce8ba4-15ec-4ae6-8b63-611e7179d506",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/public/ingestion",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ batch: $json.batch }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1376,
+        64
+      ],
+      "id": "de381f02-f10b-4150-b9cb-3af53b1f901c",
+      "name": "HTTP Request - Push to Langfuse",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "GzgjkhWd93SP7Dr1",
+          "name": "Langfuse Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        16,
+        0
+      ],
+      "id": "61dadd5a-f981-4c7c-956b-5391c0fff503",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5678/api/v1/executions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "n8nApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "workflowId",
+              "value": "NvRA14J8qv0CFH4O"
+            },
+            {
+              "name": "status",
+              "value": "success"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        240,
+        0
+      ],
+      "id": "5c7b0494-a8a2-4675-afd7-2baebe218dbd",
+      "name": "HTTP Request - List Executions",
+      "credentials": {
+        "n8nApi": {
+          "id": "FRc4BrtUCPB9YJpz",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst lastSyncedId = staticData.lastSyncedId ? parseInt(staticData.lastSyncedId) : 0;\n\nconst executions = $input.first().json.data;\n\n// Filter to only executions newer than last synced, for this workflow\nconst newExecutions = executions.filter(exec => parseInt(exec.id) > lastSyncedId);\n\nif (newExecutions.length === 0) {\n  return [];\n}\n\n// Track the highest ID seen this run, to update static data later\nconst maxId = Math.max(...newExecutions.map(e => parseInt(e.id)));\nstaticData.pendingMaxId = maxId;\n\n// Return one item per new execution, oldest first (process in order)\nreturn newExecutions\n  .sort((a, b) => parseInt(a.id) - parseInt(b.id))\n  .map(exec => ({ json: { executionId: exec.id } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        0
+      ],
+      "id": "db0b56e8-af72-439e-994d-4ca65d218477",
+      "name": "Code - Filter New Executions"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        688,
+        160
+      ],
+      "id": "eae8caa5-92c8-4bc8-aaa8-554dd668e99d",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "url": "=http://localhost:5678/api/v1/executions/{{ $json.executionId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "n8nApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "includeData",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        928,
+        0
+      ],
+      "id": "6dfe9d36-c07f-401d-885e-912e0c96ce24",
+      "name": "HTTP Request - Fetch Execution Detail",
+      "credentials": {
+        "n8nApi": {
+          "id": "FRc4BrtUCPB9YJpz",
+          "name": "n8n account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nif (staticData.pendingMaxId) {\n  staticData.lastSyncedId = staticData.pendingMaxId;\n}\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        64
+      ],
+      "id": "e5ca7f69-4466-40ed-98b7-bb2f9d1246fd",
+      "name": "Code - Update Last Synced ID"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst batch = items[0].json.batch;\n\nconst trace = batch.find(e => e.type === 'trace-create');\nconst toolSpans = batch.filter(e =>\n  e.type === 'span-create' &&\n  e.body.name !== 'AI Agent' &&\n  !e.body.name.toLowerCase().includes('chat model')\n);\n\nconst toolsCalled = toolSpans.map(s => s.body.name);\n\nreturn [{\n  json: {\n    traceId: trace.body.id,\n    userQuery: trace.body.input,\n    finalAnswer: trace.body.output,\n    toolsCalled: toolsCalled\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        -208
+      ],
+      "id": "61949c3e-1706-45da-92da-394f84e3f290",
+      "name": "Extract Judge Input"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "   https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "   anthropic-version",
+              "value": "   2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "   application/json",
+        "body": "={{ JSON.stringify({  model: \"claude-sonnet-4-6\",  max_tokens: 500,  tools: [    {      name: \"routing_judgment\",      description: \"Judge whether the AI agent chose the correct tool for the user's query\",      input_schema: {        type: \"object\",        properties: {          routing_correct: { type: \"boolean\" },          correct_tool: { type: \"string\", enum: [\"KB_Search_Tool\", \"Web_Search\", \"Direct_Answer\"] },          reasoning: { type: \"string\" }        },        required: [\"routing_correct\", \"correct_tool\", \"reasoning\"]      }    }  ],  tool_choice: { type: \"tool\", name: \"routing_judgment\" },  messages: [    {      role: \"user\",      content: \"User query: \" + $json.userQuery + \"\\n\\nTools called by agent: \" + JSON.stringify($json.toolsCalled) + \"\\n\\nAgent's final answer: \" + $json.finalAnswer + \"\\n\\nRule for judgment: time-sensitive or current-event questions (e.g. \\\"today\\\", \\\"current price\\\", \\\"is X down\\\") require Web_Search regardless of what the knowledge base returns, since the KB only covers API usage, not live/real-world state. Judge whether the tool(s) called were correct given this rule.\"    }  ]}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1648,
+        -208
+      ],
+      "id": "ca2c9cad-84cf-4c43-bf2e-20ad29a960f2",
+      "name": "HTTP Request - Claude Judge",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "4CSuprnd3e160Ntj",
+          "name": "Header Auth account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst toolUseBlock = response.content.find(c => c.type === 'tool_use');\nconst judgment = toolUseBlock.input;\n\nconst judgeInput = $('Extract Judge Input').first().json;\n\nreturn [{\n  json: {\n    traceId: judgeInput.traceId,\n    userQuery: judgeInput.userQuery,\n    toolsCalled: judgeInput.toolsCalled,\n    routing_correct: judgment.routing_correct,\n    correct_tool: judgment.correct_tool,\n    reasoning: judgment.reasoning\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1872,
+        -208
+      ],
+      "id": "25c71d82-406f-4ea7-874b-3195bb18a51e",
+      "name": "Parse Judge Result"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f1862f62-8220-4894-992b-cd3b94e8d99c",
+              "leftValue": "=     {{ $json.routing_correct }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "cc472c73-7172-43d1-abd0-25ba1d42e339",
+              "leftValue": "={{ $json.confidence }}",
+              "rightValue": 0.7,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2096,
+        -208
+      ],
+      "id": "8c1ec73a-596d-4c97-80b2-35f08ffb7cbe",
+      "name": "IF - Routing Mismatch"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "incidents",
+          "mode": "list",
+          "cachedResultName": "incidents"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "safe_to_auto_retry": false,
+            "resolved": false,
+            "execution_id": "=   {{ $json.traceId }}",
+            "ai_diagnosis": "=   {{ 'Routing mismatch: agent used ' + $json.toolsCalled.join(', ') }}",
+            "root_cause": "=   {{ $json.reasoning }}",
+            "recommended_action": "=   {{ 'Should have used: ' + $json.correct_tool }}",
+            "created_at": "=   {{ $now.toISO() }}",
+            "confidence": "={{ $json.confidence }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_diagnosis",
+              "displayName": "ai_diagnosis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "root_cause",
+              "displayName": "root_cause",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recommended_action",
+              "displayName": "recommended_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "safe_to_auto_retry",
+              "displayName": "safe_to_auto_retry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "resolved",
+              "displayName": "resolved",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2416,
+        -336
+      ],
+      "id": "1c7c1cfc-a2b7-4160-9719-896d8330f39f",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "C0CBPQVulwgpBmDk",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Push to Langfuse",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract Judge Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - List Executions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - List Executions": {
+      "main": [
+        [
+          {
+            "node": "Code - Filter New Executions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Filter New Executions": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Fetch Execution Detail",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Push to Langfuse": {
+      "main": [
+        [
+          {
+            "node": "Code - Update Last Synced ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Fetch Execution Detail": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Update Last Synced ID": {
+      "main": [
+        []
+      ]
+    },
+    "Extract Judge Input": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Claude Judge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Claude Judge": {
+      "main": [
+        [
+          {
+            "node": "Parse Judge Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Judge Result": {
+      "main": [
+        [
+          {
+            "node": "IF - Routing Mismatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Routing Mismatch": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "54560edc-1aee-430f-a107-39afc7c73750",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9e6f4df8840acb8841babe98ec4e0d62cf10470b6cdfe2b7297868759580207d"
+  },
+  "nodeGroups": [],
+  "id": "AF2q0pySA1u5N4IG",
+  "tags": []
+}
