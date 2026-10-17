@@ -1,0 +1,61 @@
+{
+  "Build Error Report": [
+    {
+      "lead_id": "L5",
+      "stage": "parse",
+      "reason": "invalid_json",
+      "error": "Unexpected token 'o', \"not json\" is not valid JSON [line 1]",
+      "raw": "not json"
+    }
+  ],
+  "Collect Hot": [
+    {
+      "tier": "hot",
+      "count": 2,
+      "leads": [
+        {
+          "lead_id": "L1",
+          "email": "ana@example.com",
+          "score": 60
+        },
+        {
+          "lead_id": "L6",
+          "email": "dee@example.com",
+          "score": 60
+        }
+      ]
+    }
+  ],
+  "Collect Warm": null,
+  "Collect Cold": [
+    {
+      "tier": "cold",
+      "count": 1,
+      "leads": [
+        {
+          "lead_id": "L2",
+          "email": "ben@example.com",
+          "score": 10
+        }
+      ]
+    }
+  ],
+  "Collect Rejected": [
+    {
+      "tier": "rejected",
+      "count": 2,
+      "leads": [
+        {
+          "lead_id": "L3",
+          "email": "ana@example.com",
+          "reason": "duplicate"
+        },
+        {
+          "lead_id": "L4",
+          "email": "cid@example",
+          "reason": "invalid_email"
+        }
+      ]
+    }
+  ]
+}

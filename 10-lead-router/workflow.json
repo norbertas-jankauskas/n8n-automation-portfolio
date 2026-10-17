@@ -1,0 +1,363 @@
+{
+  "name": "APC sim — lead router",
+  "id": "apcLeadRouter001",
+  "active": false,
+  "nodes": [
+    {
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "raw-leads",
+      "name": "Raw Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// MOCK lead source; emit exactly six leads with string payloads.\nreturn [\n  { lead_id: 'L1', raw: '{\"name\":\"Ana\",\"email\":\"ANA@Example.com\",\"budget\":5000,\"source\":\"web\"}' },\n  { lead_id: 'L2', raw: '{\"name\":\"Ben\",\"email\":\"ben@example.com\",\"budget\":800,\"source\":\"ads\"}' },\n  { lead_id: 'L3', raw: '{\"name\":\"Ana K\",\"email\":\"ana@example.com\",\"budget\":6000,\"source\":\"referral\"}' },\n  { lead_id: 'L4', raw: '{\"name\":\"Cid\",\"email\":\"cid@example\",\"budget\":3000,\"source\":\"web\"}' },\n  { lead_id: 'L5', raw: 'not json' },\n  { lead_id: 'L6', raw: '{\"name\":\"Dee\",\"email\":\"dee@example.com\",\"budget\":2500,\"source\":\"referral\"}' }\n].map((lead) => ({ json: lead }));"
+      }
+    },
+    {
+      "id": "parse-payload",
+      "name": "Parse Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "const parsed = JSON.parse($json.raw);\nreturn { json: { lead_id: $json.lead_id, ...parsed } };"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "build-error-report",
+      "name": "Build Error Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        240
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return $input.all().map(({ json: { lead_id, raw, error } }) => ({ json: {\n  lead_id,\n  stage: 'parse',\n  reason: 'invalid_json',\n  error: String(error),\n  raw\n} }));"
+      }
+    },
+    {
+      "id": "validate-and-dedupe",
+      "name": "Validate & Dedupe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const seen = new Set();\nreturn $input.all().map(({ json: lead }) => {\n  const email = String(lead.email).trim().toLowerCase();\n  let reason = null;\n  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {\n    reason = 'invalid_email';\n  } else if (seen.has(email)) {\n    reason = 'duplicate';\n  } else {\n    seen.add(email);\n  }\n  const result = {\n    lead_id: lead.lead_id,\n    name: lead.name,\n    email,\n    budget: lead.budget,\n    source: lead.source,\n    valid: reason === null,\n    reason\n  };\n  if (!result.valid) result.tier = 'rejected';\n  return { json: result };\n});"
+      }
+    },
+    {
+      "id": "score",
+      "name": "Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return $input.all().map(({ json: lead }) => {\n  if (lead.tier === 'rejected') return { json: { ...lead, score: 0 } };\n  const budget_points = lead.budget >= 5000 ? 50 : lead.budget >= 2000 ? 30 : 10;\n  const source_points = lead.source === 'referral' ? 30 : lead.source === 'web' ? 10 : 0;\n  const score = budget_points + source_points;\n  const tier = score >= 60 ? 'hot' : score >= 30 ? 'warm' : 'cold';\n  return { json: { ...lead, budget_points, source_points, score, tier } };\n});"
+      }
+    },
+    {
+      "id": "route-by-tier",
+      "name": "Route by Tier",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "tier-is-hot",
+                    "leftValue": "={{ $json.tier }}",
+                    "rightValue": "hot",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "hot"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "tier-is-warm",
+                    "leftValue": "={{ $json.tier }}",
+                    "rightValue": "warm",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "warm"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "tier-is-cold",
+                    "leftValue": "={{ $json.tier }}",
+                    "rightValue": "cold",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "cold"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "tier-is-rejected",
+                    "leftValue": "={{ $json.tier }}",
+                    "rightValue": "rejected",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "rejected"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "collect-hot",
+      "name": "Collect Hot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        -240
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const leads = $input.all().map(({ json: lead }) => ({\n  lead_id: lead.lead_id,\n  email: lead.email,\n  score: lead.score\n}));\nreturn [{ json: { tier: 'hot', count: leads.length, leads } }];"
+      }
+    },
+    {
+      "id": "collect-warm",
+      "name": "Collect Warm",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        -80
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const leads = $input.all().map(({ json: lead }) => ({\n  lead_id: lead.lead_id,\n  email: lead.email,\n  score: lead.score\n}));\nreturn [{ json: { tier: 'warm', count: leads.length, leads } }];"
+      }
+    },
+    {
+      "id": "collect-cold",
+      "name": "Collect Cold",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        80
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const leads = $input.all().map(({ json: lead }) => ({\n  lead_id: lead.lead_id,\n  email: lead.email,\n  score: lead.score\n}));\nreturn [{ json: { tier: 'cold', count: leads.length, leads } }];"
+      }
+    },
+    {
+      "id": "collect-rejected",
+      "name": "Collect Rejected",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        240
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const leads = $input.all().map(({ json: lead }) => ({\n  lead_id: lead.lead_id,\n  email: lead.email,\n  reason: lead.reason\n}));\nreturn [{ json: { tier: 'rejected', count: leads.length, leads } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Raw Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Raw Leads": {
+      "main": [
+        [
+          {
+            "node": "Parse Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Payload": {
+      "main": [
+        [
+          {
+            "node": "Validate & Dedupe",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Dedupe": {
+      "main": [
+        [
+          {
+            "node": "Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score": {
+      "main": [
+        [
+          {
+            "node": "Route by Tier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Tier": {
+      "main": [
+        [
+          {
+            "node": "Collect Hot",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect Warm",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect Cold",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

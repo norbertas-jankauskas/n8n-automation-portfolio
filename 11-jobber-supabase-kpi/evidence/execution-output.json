@@ -1,0 +1,60 @@
+{
+  "state_after_run1_equals_run2": {
+    "invoices": [
+      {
+        "id": "INV-1",
+        "client": "Acme",
+        "status": "paid",
+        "total_cents": 120000,
+        "issued_at": "2026-10-05",
+        "iso_week": "2026-W41"
+      },
+      {
+        "id": "INV-2",
+        "client": "Beta",
+        "status": "paid",
+        "total_cents": 45050,
+        "issued_at": "2026-10-06",
+        "iso_week": "2026-W41"
+      },
+      {
+        "id": "INV-3",
+        "client": "Acme",
+        "status": "awaiting_payment",
+        "total_cents": 30000,
+        "issued_at": "2026-10-07",
+        "iso_week": "2026-W41"
+      },
+      {
+        "id": "INV-5",
+        "client": "Beta",
+        "status": "paid",
+        "total_cents": 99999,
+        "issued_at": "2026-10-13",
+        "iso_week": "2026-W42"
+      }
+    ],
+    "kpi_weekly": [
+      {
+        "iso_week": "2026-W41",
+        "revenue_paid_cents": 165050,
+        "invoices_paid": 2,
+        "invoices_open": 1,
+        "avg_paid_cents": 82525
+      },
+      {
+        "iso_week": "2026-W42",
+        "revenue_paid_cents": 99999,
+        "invoices_paid": 1,
+        "invoices_open": 0,
+        "avg_paid_cents": 99999
+      }
+    ]
+  },
+  "build_error_report": [
+    {
+      "id": "INV-4",
+      "reason": "invalid_total [line 4]"
+    }
+  ]
+}
