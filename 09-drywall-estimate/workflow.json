@@ -1,0 +1,186 @@
+{
+  "name": "APC sim — drywall estimate",
+  "id": "apcDrywallEst001",
+  "active": false,
+  "nodes": [
+    {
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "sample-emails",
+      "name": "Sample Emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// MOCK email inbox; consume the trigger input and emit exactly three sample emails.\n$input.all();\nconst emails = [\n  {\n    id: 'E1',\n    from: 'dana@example.com',\n    subject: 'Quote request: basement finish',\n    body: 'Hi, walls 1200 sqft, ceiling 400 sqft, standard board, level 4 finish. Thanks.'\n  },\n  {\n    id: 'E2',\n    from: 'lee@example.com',\n    subject: 'Bathroom drywall',\n    body: 'Need walls 300 sqft, ceiling 80 sqft, moisture resistant board, level 5.'\n  },\n  {\n    id: 'E3',\n    from: 'sam@example.com',\n    subject: 'Garage',\n    body: 'Can you quote my garage? level 4'\n  }\n];\nreturn emails.map((email) => ({ json: email }));"
+      }
+    },
+    {
+      "id": "extract-job-ai-stub",
+      "name": "Extract Job [AI STUB]",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Deterministic regex STAND-IN for a later Claude extraction call; no AI service is called.\nreturn $input.all().map(({ json: email }) => {\n  const walls = email.body.match(/walls\\s+(\\d+)\\s*sq\\s*ft/i);\n  const ceiling = email.body.match(/ceiling\\s+(\\d+)\\s*sq\\s*ft/i);\n  const finish = email.body.match(/level\\s+([345])\\b/i);\n  const job = {\n    id: email.id,\n    from: email.from,\n    subject: email.subject,\n    walls_sqft: walls ? parseInt(walls[1], 10) : null,\n    ceiling_sqft: ceiling ? parseInt(ceiling[1], 10) : null,\n    board: /standard board/i.test(email.body) ? 'standard' :\n      /moisture[- ]resistant board/i.test(email.body) ? 'moisture' : null,\n    finish_level: finish ? parseInt(finish[1], 10) : null\n  };\n  const missing = ['walls_sqft', 'ceiling_sqft', 'board', 'finish_level']\n    .filter((field) => job[field] === null);\n  return { json: { ...job, missing, complete: missing.length === 0 } };\n});"
+      }
+    },
+    {
+      "id": "is-complete",
+      "name": "Is Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "complete-is-true",
+              "leftValue": "={{ $json.complete }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "price-estimate",
+      "name": "Price Estimate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        -120
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Placeholder pricing for this offline simulation; calculate using integer cents only.\nreturn $input.all().map(({ json: job }) => {\n  const area_sqft = job.walls_sqft + job.ceiling_sqft;\n  const sheets = Math.floor((area_sqft * 110 + 3199) / 3200);\n  const board_cents_per_sheet = job.board === 'standard' ? 1500 : 2200;\n  const labor_cents_per_sqft = { 3: 150, 4: 180, 5: 230 }[job.finish_level];\n  const materials_cents = sheets * board_cents_per_sheet;\n  const labor_cents = area_sqft * labor_cents_per_sqft;\n  const ceiling_surcharge_cents = 40 * job.ceiling_sqft;\n  const subtotal_cents = materials_cents + labor_cents + ceiling_surcharge_cents;\n  const margin_cents = Math.floor((subtotal_cents * 20 + 50) / 100);\n  const total_cents = subtotal_cents + margin_cents;\n  return { json: {\n    ...job,\n    area_sqft,\n    sheets,\n    board_cents_per_sheet,\n    labor_cents_per_sqft,\n    materials_cents,\n    labor_cents,\n    ceiling_surcharge_cents,\n    subtotal_cents,\n    margin_cents,\n    total_cents\n  } };\n});"
+      }
+    },
+    {
+      "id": "build-ghl-proposal",
+      "name": "Build GHL Proposal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -120
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// MOCK GoHighLevel payload shape, not the real API; nothing is sent.\nreturn $input.all().map(({ json: job }) => {\n  const c = job.total_cents;\n  const usd = (c - c % 100) / 100 + '.' + String(c % 100).padStart(2, '0');\n  const line_items = [\n    {\n      name: 'Drywall board (' + job.board + ')',\n      qty: job.sheets,\n      unit_price_cents: job.board_cents_per_sheet\n    },\n    {\n      name: 'Labor, level ' + job.finish_level + ' finish (sqft)',\n      qty: job.area_sqft,\n      unit_price_cents: job.labor_cents_per_sqft\n    },\n    {\n      name: 'Ceiling surcharge (sqft)',\n      qty: job.ceiling_sqft,\n      unit_price_cents: 40\n    },\n    {\n      name: 'Overhead and margin (20%)',\n      qty: 1,\n      unit_price_cents: job.margin_cents\n    }\n  ];\n  return { json: { ghl_proposal: {\n    contact: { email: job.from },\n    estimate: {\n      name: 'Drywall estimate ' + job.id + ' — ' + job.subject,\n      currency: 'USD',\n      line_items,\n      total_cents: job.total_cents,\n      total_usd: usd\n    }\n  } } };\n});"
+      }
+    },
+    {
+      "id": "build-review-task",
+      "name": "Build Review Task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        120
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "return $input.all().map(({ json: job }) => ({ json: { review_task: {\n  email_id: job.id,\n  from: job.from,\n  subject: job.subject,\n  missing: job.missing,\n  title: 'Review needed: ' + job.subject,\n  note: 'Missing ' + job.missing.join(', ') + '; ask the customer before pricing.'\n} } }));"
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Sample Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sample Emails": {
+      "main": [
+        [
+          {
+            "node": "Extract Job [AI STUB]",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Job [AI STUB]": {
+      "main": [
+        [
+          {
+            "node": "Is Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Complete?": {
+      "main": [
+        [
+          {
+            "node": "Price Estimate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Review Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Price Estimate": {
+      "main": [
+        [
+          {
+            "node": "Build GHL Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

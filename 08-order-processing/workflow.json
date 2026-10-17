@@ -1,0 +1,95 @@
+{
+  "name": "APC sim — order processing",
+  "id": "apcOrderProc0001",
+  "active": false,
+  "nodes": [
+    {
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "sample-orders",
+      "name": "Sample Orders",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Read the trigger input; always emit exactly these two mock orders.\n$input.all();\nconst orders = [\n  {\n    order_id: 'A-1001',\n    created_at: '2026-10-09T10:00:00Z',\n    customer_name: 'Ona Test',\n    customer_email: 'ona@example.com',\n    items: [\n      { sku: 'MUG', qty: 2, unit_price_cents: 1250 },\n      { sku: 'PEN', qty: 1, unit_price_cents: 500 }\n    ]\n  },\n  {\n    order_id: 'B-1002',\n    created_at: '2026-10-09T11:00:00Z',\n    customer_name: 'Bo Test',\n    customer_email: '',\n    items: [{ sku: 'MUG', qty: 0, unit_price_cents: 1250 }]\n  }\n];\nreturn orders.map((order) => ({ json: order }));"
+      }
+    },
+    {
+      "id": "validate-order",
+      "name": "Validate Order",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "return $input.all().map(({ json: order }) => {\n  const reasons = [];\n  for (const field of ['order_id', 'created_at', 'customer_name', 'customer_email']) {\n    if (typeof order[field] !== 'string' || order[field].trim() === '') {\n      reasons.push('missing ' + field);\n    }\n  }\n  if (typeof order.customer_email !== 'string' || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(order.customer_email)) {\n    reasons.push('invalid customer_email');\n  }\n  if (!Array.isArray(order.items) || order.items.length === 0) {\n    reasons.push('missing items');\n  } else {\n    order.items.forEach((item, i) => {\n      const line = item ?? {};\n      if (!Number.isInteger(line.qty) || line.qty <= 0) {\n        reasons.push('items[' + i + '].qty must be a positive integer');\n      }\n      if (!Number.isInteger(line.unit_price_cents) || line.unit_price_cents < 0) {\n        reasons.push('items[' + i + '].unit_price_cents must be a non-negative integer');\n      }\n    });\n  }\n  return { json: { ...order, valid: reasons.length === 0, reasons } };\n});"
+      }
+    },
+    {
+      "id": "build-outputs",
+      "name": "Build Outputs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "return $input.all().map(({ json: order }) => {\n  if (!order.valid) {\n    return { json: { error: { order_id: order.order_id, reasons: order.reasons } } };\n  }\n  const items_count = order.items.length;\n  const total_cents = order.items.reduce((sum, item) => sum + item.qty * item.unit_price_cents, 0);\n  const c = total_cents;\n  const total_eur = String((c - c % 100) / 100) + '.' + String(c % 100).padStart(2, '0');\n  const sheet_row = {\n    order_id: order.order_id,\n    created_at: order.created_at,\n    customer_name: order.customer_name,\n    customer_email: order.customer_email,\n    items_count,\n    total_cents,\n    total_eur\n  };\n  const notification = {\n    to: 'ops@example.com',\n    subject: 'New order ' + order.order_id,\n    body: 'Order ' + order.order_id + ' from ' + order.customer_name + ': ' + items_count + ' line items, total ' + total_eur + ' EUR.'\n  };\n  return { json: { sheet_row, notification } };\n});"
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Sample Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sample Orders": {
+      "main": [
+        [
+          {
+            "node": "Validate Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Order": {
+      "main": [
+        [
+          {
+            "node": "Build Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

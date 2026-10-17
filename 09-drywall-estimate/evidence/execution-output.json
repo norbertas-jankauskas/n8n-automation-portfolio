@@ -1,0 +1,90 @@
+{
+  "Build GHL Proposal": [
+    {
+      "ghl_proposal": {
+        "contact": {
+          "email": "dana@example.com"
+        },
+        "estimate": {
+          "name": "Drywall estimate E1 — Quote request: basement finish",
+          "currency": "USD",
+          "line_items": [
+            {
+              "name": "Drywall board (standard)",
+              "qty": 55,
+              "unit_price_cents": 1500
+            },
+            {
+              "name": "Labor, level 4 finish (sqft)",
+              "qty": 1600,
+              "unit_price_cents": 180
+            },
+            {
+              "name": "Ceiling surcharge (sqft)",
+              "qty": 400,
+              "unit_price_cents": 40
+            },
+            {
+              "name": "Overhead and margin (20%)",
+              "qty": 1,
+              "unit_price_cents": 77300
+            }
+          ],
+          "total_cents": 463800,
+          "total_usd": "4638.00"
+        }
+      }
+    },
+    {
+      "ghl_proposal": {
+        "contact": {
+          "email": "lee@example.com"
+        },
+        "estimate": {
+          "name": "Drywall estimate E2 — Bathroom drywall",
+          "currency": "USD",
+          "line_items": [
+            {
+              "name": "Drywall board (moisture)",
+              "qty": 14,
+              "unit_price_cents": 2200
+            },
+            {
+              "name": "Labor, level 5 finish (sqft)",
+              "qty": 380,
+              "unit_price_cents": 230
+            },
+            {
+              "name": "Ceiling surcharge (sqft)",
+              "qty": 80,
+              "unit_price_cents": 40
+            },
+            {
+              "name": "Overhead and margin (20%)",
+              "qty": 1,
+              "unit_price_cents": 24280
+            }
+          ],
+          "total_cents": 145680,
+          "total_usd": "1456.80"
+        }
+      }
+    }
+  ],
+  "Build Review Task": [
+    {
+      "review_task": {
+        "email_id": "E3",
+        "from": "sam@example.com",
+        "subject": "Garage",
+        "missing": [
+          "walls_sqft",
+          "ceiling_sqft",
+          "board"
+        ],
+        "title": "Review needed: Garage",
+        "note": "Missing walls_sqft, ceiling_sqft, board; ask the customer before pricing."
+      }
+    }
+  ]
+}
