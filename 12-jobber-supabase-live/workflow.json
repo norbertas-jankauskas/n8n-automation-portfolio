@@ -1,0 +1,298 @@
+{
+  "name": "APC sim — Jobber KPI to Supabase",
+  "id": "apcJobberKpiSb01",
+  "active": false,
+  "nodes": [
+    {
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "fetch-invoices",
+      "name": "Fetch Invoices",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        240,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5690/graphql",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{\"query\": \"query Invoices($after: String) { invoices(first: 2, after: $after) { nodes { id client status total issuedAt } pageInfo { hasNextPage endCursor } } }\", \"variables\": {}, \"after\": null}",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "after",
+                    "value": "={{ $response.body?.data?.invoices?.pageInfo?.endCursor ?? null }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body?.data?.invoices?.pageInfo?.hasNextPage !== true }}",
+              "limitPagesFetched": true,
+              "maxRequests": 10,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "flatten",
+      "name": "Flatten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// One output item per invoice node across all fetched pages.\nconst invoices = [];\nfor (const page of $input.all()) {\n  const nodes = page.json?.data?.invoices?.nodes ?? [];\n  for (const invoice of nodes) {\n    invoices.push({ json: invoice });\n  }\n}\nreturn invoices;"
+      }
+    },
+    {
+      "id": "validate-transform",
+      "name": "Validate & Transform",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// Runs once per invoice; a thrown error goes to the error output.\nconst invoice = $json;\nconst total = typeof invoice.total === 'string' ? invoice.total : '';\nif (!/^\\d+\\.\\d{2}$/.test(total)) {\n  throw new Error(`invalid_total: ${invoice.id} has total ${JSON.stringify(invoice.total)}`);\n}\n// Integer string math: \"450.50\" -> \"45050\" -> 45050, no floating point.\nconst [units, cents] = total.split('.');\nconst totalCents = parseInt(units + cents, 10);\nif (!Number.isSafeInteger(totalCents)) {\n  throw new Error(`invalid_total: ${invoice.id} total is out of range`);\n}\nconst match = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(String(invoice.issuedAt ?? ''));\nif (!match) {\n  throw new Error(`invalid_issued_at: ${invoice.id} has issuedAt ${JSON.stringify(invoice.issuedAt)}`);\n}\n// ISO 8601 week: shift to the Thursday of the same week, then count weeks.\nconst date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));\nconst weekday = date.getUTCDay() || 7;\ndate.setUTCDate(date.getUTCDate() + 4 - weekday);\nconst isoYear = date.getUTCFullYear();\nconst week = Math.ceil(((date - Date.UTC(isoYear, 0, 1)) / 86400000 + 1) / 7);\nreturn {\n  json: {\n    id: invoice.id,\n    client: invoice.client,\n    status: invoice.status,\n    total_cents: totalCents,\n    issued_at: invoice.issuedAt,\n    iso_week: `${isoYear}-W${String(week).padStart(2, '0')}`,\n  },\n};"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "upsert-invoice",
+      "name": "Upsert Invoice",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        960,
+        -160
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "parameters": {
+        "method": "POST",
+        "url": "https://dgmzseviicodcvoqtybw.supabase.co:443/rest/v1/invoices?on_conflict=id",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ id: $json.id, client: $json.client, status: $json.status, total_cents: $json.total_cents, issued_at: $json.issued_at, iso_week: $json.iso_week }) }}",
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apcSupabase0001",
+          "name": "APC Supabase"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "compute-kpis",
+      "name": "Compute KPIs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Weekly KPIs over all valid invoices, in cents.\nconst weeks = {};\nfor (const { json: invoice } of $input.all()) {\n  const week = (weeks[invoice.iso_week] ??= {\n    iso_week: invoice.iso_week,\n    revenue_paid_cents: 0,\n    invoices_paid: 0,\n    invoices_open: 0,\n  });\n  if (invoice.status === 'paid') {\n    week.revenue_paid_cents += invoice.total_cents;\n    week.invoices_paid += 1;\n  } else if (invoice.status === 'awaiting_payment') {\n    week.invoices_open += 1;\n  }\n}\nreturn Object.keys(weeks).sort().map((key) => {\n  const week = weeks[key];\n  week.avg_paid_cents = week.invoices_paid\n    ? Math.floor(week.revenue_paid_cents / week.invoices_paid)\n    : 0;\n  return { json: week };\n});"
+      }
+    },
+    {
+      "id": "build-error-report",
+      "name": "Build Error Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        160
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Items from the Validate & Transform error output (input fields + error).\nreturn $input.all().map((item) => ({\n  json: {\n    stage: 'validate',\n    id: item.json.id,\n    total: item.json.total,\n    reason: item.json.error,\n  },\n}));"
+      }
+    },
+    {
+      "id": "upsert-kpi",
+      "name": "Upsert KPI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1200,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "parameters": {
+        "method": "POST",
+        "url": "https://dgmzseviicodcvoqtybw.supabase.co:443/rest/v1/kpi_weekly?on_conflict=iso_week",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ iso_week: $json.iso_week, revenue_paid_cents: $json.revenue_paid_cents, invoices_paid: $json.invoices_paid, invoices_open: $json.invoices_open, avg_paid_cents: $json.avg_paid_cents }) }}",
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apcSupabase0001",
+          "name": "APC Supabase"
+        }
+      }
+    },
+    {
+      "id": "build-upsert-error-report",
+      "name": "Build Upsert Error Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -160
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// HTTP error output retains the source item and attaches error metadata.\nreturn $input.all().map((item, index) => {\n  const error = item.json.error;\n  const original = item.json.id ? item.json : $('Validate & Transform').itemMatching(index).json;\n  const message = typeof error === 'string' ? error : String(error?.message ?? error?.description ?? 'upsert_failed');\n  const statusInMessage = /\\b([45]\\d{2})\\b/.exec(message);\n  return { json: {\n    stage: 'upsert',\n    id: item.json.id ?? original.id,\n    status: error?.statusCode ?? error?.httpCode ?? error?.status ?? item.json.statusCode ?? (statusInMessage ? Number(statusInMessage[1]) : null),\n    message: message,\n  } };\n});"
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Invoices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Invoices": {
+      "main": [
+        [
+          {
+            "node": "Flatten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flatten": {
+      "main": [
+        [
+          {
+            "node": "Validate & Transform",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Transform": {
+      "main": [
+        [
+          {
+            "node": "Upsert Invoice",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Compute KPIs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute KPIs": {
+      "main": [
+        [
+          {
+            "node": "Upsert KPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Invoice": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Build Upsert Error Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
