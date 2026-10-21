@@ -1,0 +1,10 @@
+[
+  [
+    {
+      "stage": "upsert",
+      "id": "INV-6",
+      "status": 400,
+      "message": "400 - \"{\\\"code\\\":\\\"23514\\\",\\\"details\\\":null,\\\"hint\\\":null,\\\"message\\\":\\\"new row for relation \\\\\\\"invoices\\\\\\\" violates check constraint \\\\\\\"invoices_total_cents_check\\\\\\\"\\\"}\""
+    }
+  ]
+]

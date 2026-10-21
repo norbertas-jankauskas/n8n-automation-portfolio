@@ -1,0 +1,436 @@
+{
+  "run_id": "d82f0363986c",
+  "utc_start": "2026-10-20T14:24:08.847684Z",
+  "utc_end": "2026-10-20T14:24:20.265423Z",
+  "egress_host": "dgmzseviicodcvoqtybw.supabase.co",
+  "egress": [
+    {
+      "bytes_down": 0,
+      "bytes_up": 0,
+      "event": "allow",
+      "host": "dgmzseviicodcvoqtybw.supabase.co",
+      "port": 443,
+      "reason": "target"
+    },
+    {
+      "bytes_down": 0,
+      "bytes_up": 0,
+      "event": "allow",
+      "host": "dgmzseviicodcvoqtybw.supabase.co",
+      "port": 443,
+      "reason": "target"
+    },
+    {
+      "bytes_down": 0,
+      "bytes_up": 0,
+      "event": "allow",
+      "host": "dgmzseviicodcvoqtybw.supabase.co",
+      "port": 443,
+      "reason": "target"
+    },
+    {
+      "bytes_down": 0,
+      "bytes_up": 0,
+      "event": "allow",
+      "host": "dgmzseviicodcvoqtybw.supabase.co",
+      "port": 443,
+      "reason": "target"
+    },
+    {
+      "bytes_down": 5503,
+      "bytes_up": 2301,
+      "event": "close",
+      "host": "dgmzseviicodcvoqtybw.supabase.co",
+      "port": 443,
+      "reason": "peer_closed"
+    },
+    {
+      "bytes_down": 5505,
+      "bytes_up": 2302,
+      "event": "close",
+      "host": "dgmzseviicodcvoqtybw.supabase.co",
+      "port": 443,
+      "reason": "peer_closed"
+    },
+    {
+      "bytes_down": 5515,
+      "bytes_up": 2313,
+      "event": "close",
+      "host": "dgmzseviicodcvoqtybw.supabase.co",
+      "port": 443,
+      "reason": "peer_closed"
+    },
+    {
+      "bytes_down": 5545,
+      "bytes_up": 2301,
+      "event": "close",
+      "host": "dgmzseviicodcvoqtybw.supabase.co",
+      "port": 443,
+      "reason": "peer_closed"
+    },
+    {
+      "bytes_down": 0,
+      "bytes_up": 0,
+      "event": "allow",
+      "host": "dgmzseviicodcvoqtybw.supabase.co",
+      "port": 443,
+      "reason": "target"
+    },
+    {
+      "bytes_down": 0,
+      "bytes_up": 0,
+      "event": "allow",
+      "host": "dgmzseviicodcvoqtybw.supabase.co",
+      "port": 443,
+      "reason": "target"
+    },
+    {
+      "bytes_down": 5487,
+      "bytes_up": 2305,
+      "event": "close",
+      "host": "dgmzseviicodcvoqtybw.supabase.co",
+      "port": 443,
+      "reason": "peer_closed"
+    },
+    {
+      "bytes_down": 5534,
+      "bytes_up": 2306,
+      "event": "close",
+      "host": "dgmzseviicodcvoqtybw.supabase.co",
+      "port": 443,
+      "reason": "peer_closed"
+    }
+  ],
+  "egress_allowed_only_target": true,
+  "leak_check": "PASS",
+  "secret_dir_removed": true,
+  "exit_codes": {
+    "network_create_int": 0,
+    "network_create_ext": 0,
+    "proxy_start": 0,
+    "network_connect": 0,
+    "mock_start": 0,
+    "n8n_1": 0,
+    "mock_logs_1": 0,
+    "mock_logs": 0,
+    "proxy_logs": 0,
+    "rm_n8n": 0,
+    "rm_mock": 0,
+    "rm_proxy": 0,
+    "network_rm_int": 0,
+    "network_rm_ext": 0
+  },
+  "docker_argv": [
+    [
+      "docker",
+      "network",
+      "create",
+      "--internal",
+      "apc-int-d82f0363986c"
+    ],
+    [
+      "docker",
+      "network",
+      "create",
+      "apc-ext-d82f0363986c"
+    ],
+    [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "apc-proxy-d82f0363986c",
+      "--network=apc-int-d82f0363986c",
+      "--read-only",
+      "--cap-drop=ALL",
+      "--security-opt=no-new-privileges",
+      "--pids-limit=64",
+      "--memory=128m",
+      "--user=65534:65534",
+      "--tmpfs",
+      "/tmp:size=8m",
+      "-v",
+      "RUN_DIR/run-4/egress_proxy.py:/app/egress_proxy.py:ro",
+      "python@sha256:2b4f19dae3a777dfc3b76730bda1e82e1f66ab2a2686fa93ca78edbfb4f04ffe",
+      "python",
+      "-I",
+      "/app/egress_proxy.py",
+      "--listen-port",
+      "3128",
+      "--allow",
+      "dgmzseviicodcvoqtybw.supabase.co:443",
+      "--max-tunnels",
+      "50",
+      "--max-bytes",
+      "5242880",
+      "--idle-seconds",
+      "30"
+    ],
+    [
+      "docker",
+      "network",
+      "connect",
+      "apc-ext-d82f0363986c",
+      "apc-proxy-d82f0363986c"
+    ],
+    [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "apc-mock-d82f0363986c",
+      "--network=apc-int-d82f0363986c",
+      "--read-only",
+      "--cap-drop=ALL",
+      "--security-opt=no-new-privileges",
+      "--pids-limit=64",
+      "--memory=256m",
+      "--user=65534:65534",
+      "--tmpfs",
+      "/tmp:size=16m",
+      "-v",
+      "RUN_DIR/run-4/mock.py:/app/mock.py:ro",
+      "python@sha256:2b4f19dae3a777dfc3b76730bda1e82e1f66ab2a2686fa93ca78edbfb4f04ffe",
+      "python",
+      "-I",
+      "/app/mock.py",
+      "--port",
+      "5690",
+      "--log",
+      "-"
+    ],
+    [
+      "docker",
+      "run",
+      "--rm",
+      "--name",
+      "apc-n8n-d82f0363986c",
+      "--network=container:apc-mock-d82f0363986c",
+      "--read-only",
+      "--cap-drop=ALL",
+      "--security-opt=no-new-privileges",
+      "--pids-limit=256",
+      "--memory=2g",
+      "--tmpfs",
+      "/tmp:size=64m",
+      "--tmpfs",
+      "/home/node/.n8n:size=256m,uid=1000,gid=1000",
+      "-v",
+      "RUN_DIR/run-4/workflow.json:/in/workflow.json:ro",
+      "-e",
+      "N8N_DIAGNOSTICS_ENABLED=false",
+      "-e",
+      "N8N_VERSION_NOTIFICATIONS_ENABLED=false",
+      "-e",
+      "N8N_TEMPLATES_ENABLED=false",
+      "-e",
+      "NODES_EXCLUDE=[\"n8n-nodes-base.executeCommand\", \"n8n-nodes-base.readWriteFile\", \"n8n-nodes-base.readBinaryFile\", \"n8n-nodes-base.readBinaryFiles\", \"n8n-nodes-base.writeBinaryFile\", \"n8n-nodes-base.ssh\", \"n8n-nodes-base.ftp\", \"n8n-nodes-base.localFileTrigger\", \"n8n-nodes-base.executeWorkflow\", \"n8n-nodes-base.executeWorkflowTrigger\", \"n8n-nodes-base.webhook\", \"n8n-nodes-base.n8n\", \"n8n-nodes-base.git\", \"n8n-nodes-base.function\", \"n8n-nodes-base.functionItem\"]",
+      "-e",
+      "HTTPS_PROXY=http://apc-proxy-d82f0363986c:3128",
+      "-e",
+      "NO_PROXY=127.0.0.1,localhost",
+      "-v",
+      "RUN_DIR/.secret-d82f0363986c/cred.json:/in/cred.json:ro",
+      "--entrypoint",
+      "sh",
+      "n8nio/n8n@sha256:bbf92723aa3eb7129fff2ca760b46aa1ff267779a462a37bc0a3fc8bf47bff8f",
+      "-c",
+      "n8n import:credentials --input=/in/cred.json && n8n import:workflow --input=/in/workflow.json && n8n execute --id=apcJobberKpiSb01 --rawOutput"
+    ],
+    [
+      "docker",
+      "logs",
+      "apc-mock-d82f0363986c"
+    ],
+    [
+      "docker",
+      "logs",
+      "apc-mock-d82f0363986c"
+    ],
+    [
+      "docker",
+      "logs",
+      "apc-proxy-d82f0363986c"
+    ],
+    [
+      "docker",
+      "rm",
+      "-f",
+      "apc-n8n-d82f0363986c"
+    ],
+    [
+      "docker",
+      "rm",
+      "-f",
+      "apc-mock-d82f0363986c"
+    ],
+    [
+      "docker",
+      "rm",
+      "-f",
+      "apc-proxy-d82f0363986c"
+    ],
+    [
+      "docker",
+      "network",
+      "rm",
+      "apc-int-d82f0363986c"
+    ],
+    [
+      "docker",
+      "network",
+      "rm",
+      "apc-ext-d82f0363986c"
+    ]
+  ],
+  "hashes": {
+    "run_isolated.py": "d2af0633df710ea7f2f19532de80a3940c14df271e62b6f36bd5349f4ff6e13e",
+    "validate_workflow.py": "c07f88e2f14af7d57e1ee002fa28ae3e7a3a4b70f319bdb634f5abc09c7964b9",
+    "supabase_readback.py": "f453ab347ec17d7bbf30599c1e2f6c8ab2c6d3fb2f5122d65e5e6ac52ecc3a16",
+    "workflow.json": "3a8be3301cc9ff5d7a38e8f9ac5a668edb85c2a6ea2c091ab56df88f7466fae7",
+    "allowlist.json": "176514bafd67012c53ab46b5c6472a175fd4fa0edf0a17f30d2e6b294d64d2d7",
+    "mock.py": "9d8d6ca6ccb514911f025e9c8455160b9ec47187e1d01cff6634facf38d11d7a",
+    "egress_proxy.py": "365aa47aa866224fc295c4331d66d0a9c32317f0571599e6f292701b1fc325ca",
+    "network_create_int.stdout": "4a07ac3ab621db9c0a5928166e240202df5b6e303a3f96ab369e43de1c9932e8",
+    "network_create_int.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "network_create_ext.stdout": "69f64f36247cc0157fc7b6a64f151cff8e9b54d74161213d85432cdd62d28f4a",
+    "network_create_ext.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "proxy_start.stdout": "4088bb149a634bcac75e9c0374b63a976a5bfcad8d49576533bb13ea8ec0c3f8",
+    "proxy_start.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "network_connect.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "network_connect.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mock_start.stdout": "dbb420ac8b70f53927f444b0c7dd70d3e40694c9beb84ee130b139aca7c46651",
+    "mock_start.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "n8n_1.stdout": "3deca98c7ee190ed4fb56a833a2d8b32422f016a175bcdad9cbcce8fc1bef455",
+    "n8n_1.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mock_logs_1.stdout": "c90e04842708ca244d42799bc3e4a30944ac852ff29eee42cdcef2e6bff2eca5",
+    "mock_logs_1.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "requests_1.jsonl": "d60c0c7faa06b5bf3e5ab867f2cdca6f5018d69dd0320f3d21f81bbd0cc51f40",
+    "mock_logs.stdout": "c90e04842708ca244d42799bc3e4a30944ac852ff29eee42cdcef2e6bff2eca5",
+    "mock_logs.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "proxy_logs.stdout": "5b301ee22e5f9e09294039bfff521ac9f1d601f14eabd7cdf443e5b8cfe19da1",
+    "proxy_logs.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rm_n8n.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rm_n8n.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rm_mock.stdout": "b2105c7a7e56c55411ca6c1bb848ee239f40104454a07c8e03d2c0efb14c16de",
+    "rm_mock.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rm_proxy.stdout": "b98c6cc5bff601296acba853b2dad296c00302b05a14327bbe2f414ef43541cf",
+    "rm_proxy.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "network_rm_int.stdout": "0f2ed7b8e0a084c4a7dc3983c8e2c1214358f4f006616b08af4a205f9c95498b",
+    "network_rm_int.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "network_rm_ext.stdout": "eaa8e2f242425a9e4ad9ab8c58fc28fc136f922e547222570f473ebcc02bbdd7",
+    "network_rm_ext.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "image_digests": {
+    "n8n": "n8nio/n8n@sha256:bbf92723aa3eb7129fff2ca760b46aa1ff267779a462a37bc0a3fc8bf47bff8f",
+    "mock": "python@sha256:2b4f19dae3a777dfc3b76730bda1e82e1f66ab2a2686fa93ca78edbfb4f04ffe"
+  },
+  "truncated": {
+    "network_create_int": {
+      "stdout": false,
+      "stderr": false
+    },
+    "network_create_ext": {
+      "stdout": false,
+      "stderr": false
+    },
+    "proxy_start": {
+      "stdout": false,
+      "stderr": false
+    },
+    "network_connect": {
+      "stdout": false,
+      "stderr": false
+    },
+    "mock_start": {
+      "stdout": false,
+      "stderr": false
+    },
+    "n8n_1": {
+      "stdout": false,
+      "stderr": false
+    },
+    "mock_logs_1": {
+      "stdout": false,
+      "stderr": false
+    },
+    "mock_logs": {
+      "stdout": false,
+      "stderr": false
+    },
+    "proxy_logs": {
+      "stdout": false,
+      "stderr": false
+    },
+    "rm_n8n": {
+      "stdout": false,
+      "stderr": false
+    },
+    "rm_mock": {
+      "stdout": false,
+      "stderr": false
+    },
+    "rm_proxy": {
+      "stdout": false,
+      "stderr": false
+    },
+    "network_rm_int": {
+      "stdout": false,
+      "stderr": false
+    },
+    "network_rm_ext": {
+      "stdout": false,
+      "stderr": false
+    }
+  },
+  "timed_out": false,
+  "runs": 1,
+  "mock_log": true,
+  "requests": {
+    "1": [
+      {
+        "method": "POST",
+        "path": "/graphql",
+        "cursor": null,
+        "table": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/graphql",
+        "cursor": "c2",
+        "table": null,
+        "status": 429
+      },
+      {
+        "method": "POST",
+        "path": "/graphql",
+        "cursor": null,
+        "table": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/graphql",
+        "cursor": "c2",
+        "table": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/graphql",
+        "cursor": "c3",
+        "table": null,
+        "status": 200
+      }
+    ]
+  },
+  "state_after": {
+    "1": {
+      "invoices": [],
+      "kpi_weekly": []
+    }
+  },
+  "log_parse_errors": 0,
+  "egress_parse_errors": 0
+}

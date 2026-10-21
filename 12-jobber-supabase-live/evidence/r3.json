@@ -1,0 +1,52 @@
+{
+  "invoices": [
+    {
+      "client": "Acme",
+      "id": "INV-1",
+      "iso_week": "2026-W41",
+      "issued_at": "2026-10-05",
+      "status": "paid",
+      "total_cents": 120000
+    },
+    {
+      "client": "Beta",
+      "id": "INV-2",
+      "iso_week": "2026-W41",
+      "issued_at": "2026-10-06",
+      "status": "paid",
+      "total_cents": 45050
+    },
+    {
+      "client": "Acme",
+      "id": "INV-3",
+      "iso_week": "2026-W41",
+      "issued_at": "2026-10-07",
+      "status": "awaiting_payment",
+      "total_cents": 30000
+    },
+    {
+      "client": "Beta",
+      "id": "INV-5",
+      "iso_week": "2026-W42",
+      "issued_at": "2026-10-13",
+      "status": "paid",
+      "total_cents": 99999
+    }
+  ],
+  "kpi_weekly": [
+    {
+      "avg_paid_cents": 82525,
+      "invoices_open": 1,
+      "invoices_paid": 2,
+      "iso_week": "2026-W41",
+      "revenue_paid_cents": 165050
+    },
+    {
+      "avg_paid_cents": 10049999,
+      "invoices_open": 0,
+      "invoices_paid": 2,
+      "iso_week": "2026-W42",
+      "revenue_paid_cents": 20099999
+    }
+  ]
+}

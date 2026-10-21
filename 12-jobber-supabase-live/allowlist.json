@@ -1,0 +1,26 @@
+{
+  "node_types": {
+    "n8n-nodes-base.code": [
+      2
+    ],
+    "n8n-nodes-base.httpRequest": [
+      4.5
+    ],
+    "n8n-nodes-base.manualTrigger": [
+      1
+    ]
+  },
+  "origins": [
+    "http://127.0.0.1:5690",
+    "https://dgmzseviicodcvoqtybw.supabase.co:443"
+  ],
+  "allow_error_workflow": false,
+  "egress": {
+    "origin": "https://dgmzseviicodcvoqtybw.supabase.co:443",
+    "credential": {
+      "type": "httpHeaderAuth",
+      "id": "apcSupabase0001",
+      "name": "APC Supabase"
+    }
+  }
+}

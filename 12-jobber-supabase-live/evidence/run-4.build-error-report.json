@@ -1,0 +1,10 @@
+[
+  [
+    {
+      "stage": "validate",
+      "id": "INV-4",
+      "total": "abc",
+      "reason": "invalid_total: INV-4 has total \"abc\" [line 5]"
+    }
+  ]
+]
