@@ -1,0 +1,472 @@
+{
+  "run_id": "2544adb9e085",
+  "utc_start": "2026-10-22T11:44:49.990760Z",
+  "utc_end": "2026-10-22T11:45:04.257358Z",
+  "exit_codes": {
+    "mock_start": 0,
+    "n8n_1": 0,
+    "mock_logs_1": 0,
+    "rm_n8n_pre_2": 0,
+    "n8n_2": 0,
+    "mock_logs_2": 0,
+    "rm_n8n": 0,
+    "rm_mock": 0
+  },
+  "hashes": {
+    "run_isolated.py": "d2af0633df710ea7f2f19532de80a3940c14df271e62b6f36bd5349f4ff6e13e",
+    "validate_workflow.py": "c07f88e2f14af7d57e1ee002fa28ae3e7a3a4b70f319bdb634f5abc09c7964b9",
+    "probe.js": "73bd4d4abf053738db5828673fa6c2e743d51915d7c194754178ddcfedf4fc8c",
+    "allowlist.json": "51d91c34bdbd581ba63c35857167aee2171b8449128c87c470c7f66213f5b76a",
+    "workflow.json": "b0ee197a5adecb470d34ecf481463df32d0dace6cd495d0ac9261600ad458792",
+    "mock.py": "fcf929ead456f072b53c1803ae335322b4b7b7b5f3aa50de7bc2562211b5f6ef",
+    "mock_start.stdout": "fec3ce09aead79f763a695a25643e81f6e9a65b1b1b791e3eccbcf29a5a4439a",
+    "mock_start.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "n8n_1.stdout": "70f80bdb2f33b89c282afa7fc4475614e8a84d96e60f137226b4776cb5545b36",
+    "n8n_1.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mock_logs_1.stdout": "d6cc4cacdfd04430e1e0bad9c4953823471b193ba68a90e3122b62457a808f1f",
+    "mock_logs_1.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "requests_1.jsonl": "411b43590689c1aef43304e6e623c8bfee410c7a8a47e14665f3b089e98629f3",
+    "rm_n8n_pre_2.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rm_n8n_pre_2.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "n8n_2.stdout": "7c15cee8ba920430ef62ef834dec6ab0d993aa7a238bbcb06ecc986d8dd7079d",
+    "n8n_2.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mock_logs_2.stdout": "e015ef1c1a60214389c0b4e19b8a0f33ddee0bf0f61c291ce97b33d8e231c265",
+    "mock_logs_2.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "requests_2.jsonl": "8f238e53fc1ba3242569e8b58e89db434440b4eefe4dad1f7d21d3c9a65bde3c",
+    "rm_n8n.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rm_n8n.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rm_mock.stdout": "3d7deaf01bf97886a6ae4f972b7a6c4e526bfb2cd42e1781954d53339bd9e0fc",
+    "rm_mock.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "image_digests": {
+    "n8n": "n8nio/n8n@sha256:bbf92723aa3eb7129fff2ca760b46aa1ff267779a462a37bc0a3fc8bf47bff8f",
+    "mock": "python@sha256:2b4f19dae3a777dfc3b76730bda1e82e1f66ab2a2686fa93ca78edbfb4f04ffe"
+  },
+  "truncated": {
+    "mock_start": {
+      "stdout": false,
+      "stderr": false
+    },
+    "n8n_1": {
+      "stdout": false,
+      "stderr": false
+    },
+    "mock_logs_1": {
+      "stdout": false,
+      "stderr": false
+    },
+    "rm_n8n_pre_2": {
+      "stdout": false,
+      "stderr": false
+    },
+    "n8n_2": {
+      "stdout": false,
+      "stderr": false
+    },
+    "mock_logs_2": {
+      "stdout": false,
+      "stderr": false
+    },
+    "rm_n8n": {
+      "stdout": false,
+      "stderr": false
+    },
+    "rm_mock": {
+      "stdout": false,
+      "stderr": false
+    }
+  },
+  "timed_out": false,
+  "docker_argv": [
+    [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "apc-mock-2544adb9e085",
+      "--network=none",
+      "--read-only",
+      "--cap-drop=ALL",
+      "--security-opt=no-new-privileges",
+      "--pids-limit=64",
+      "--memory=256m",
+      "--user=65534:65534",
+      "--tmpfs",
+      "/tmp:size=16m",
+      "-v",
+      "RUN_DIR/run-partial/mock.py:/app/mock.py:ro",
+      "python@sha256:2b4f19dae3a777dfc3b76730bda1e82e1f66ab2a2686fa93ca78edbfb4f04ffe",
+      "python",
+      "-I",
+      "/app/mock.py",
+      "--port",
+      "5690",
+      "--log",
+      "-",
+      "--fixture",
+      "partial"
+    ],
+    [
+      "docker",
+      "run",
+      "--rm",
+      "--name",
+      "apc-n8n-2544adb9e085",
+      "--network=container:apc-mock-2544adb9e085",
+      "--read-only",
+      "--cap-drop=ALL",
+      "--security-opt=no-new-privileges",
+      "--pids-limit=256",
+      "--memory=2g",
+      "--tmpfs",
+      "/tmp:size=64m",
+      "--tmpfs",
+      "/home/node/.n8n:size=256m,uid=1000,gid=1000",
+      "-v",
+      "RUN_DIR/run-partial/workflow.json:/in/workflow.json:ro",
+      "-e",
+      "N8N_DIAGNOSTICS_ENABLED=false",
+      "-e",
+      "N8N_VERSION_NOTIFICATIONS_ENABLED=false",
+      "-e",
+      "N8N_TEMPLATES_ENABLED=false",
+      "-e",
+      "NODES_EXCLUDE=[\"n8n-nodes-base.executeCommand\", \"n8n-nodes-base.readWriteFile\", \"n8n-nodes-base.readBinaryFile\", \"n8n-nodes-base.readBinaryFiles\", \"n8n-nodes-base.writeBinaryFile\", \"n8n-nodes-base.ssh\", \"n8n-nodes-base.ftp\", \"n8n-nodes-base.localFileTrigger\", \"n8n-nodes-base.executeWorkflow\", \"n8n-nodes-base.executeWorkflowTrigger\", \"n8n-nodes-base.webhook\", \"n8n-nodes-base.n8n\", \"n8n-nodes-base.git\", \"n8n-nodes-base.function\", \"n8n-nodes-base.functionItem\"]",
+      "--entrypoint",
+      "sh",
+      "n8nio/n8n@sha256:bbf92723aa3eb7129fff2ca760b46aa1ff267779a462a37bc0a3fc8bf47bff8f",
+      "-c",
+      "n8n import:workflow --input=/in/workflow.json && n8n execute --id=apcJobberKpiAcc1 --rawOutput"
+    ],
+    [
+      "docker",
+      "logs",
+      "apc-mock-2544adb9e085"
+    ],
+    [
+      "docker",
+      "rm",
+      "-f",
+      "apc-n8n-2544adb9e085"
+    ],
+    [
+      "docker",
+      "run",
+      "--rm",
+      "--name",
+      "apc-n8n-2544adb9e085",
+      "--network=container:apc-mock-2544adb9e085",
+      "--read-only",
+      "--cap-drop=ALL",
+      "--security-opt=no-new-privileges",
+      "--pids-limit=256",
+      "--memory=2g",
+      "--tmpfs",
+      "/tmp:size=64m",
+      "--tmpfs",
+      "/home/node/.n8n:size=256m,uid=1000,gid=1000",
+      "-v",
+      "RUN_DIR/run-partial/workflow.json:/in/workflow.json:ro",
+      "-e",
+      "N8N_DIAGNOSTICS_ENABLED=false",
+      "-e",
+      "N8N_VERSION_NOTIFICATIONS_ENABLED=false",
+      "-e",
+      "N8N_TEMPLATES_ENABLED=false",
+      "-e",
+      "NODES_EXCLUDE=[\"n8n-nodes-base.executeCommand\", \"n8n-nodes-base.readWriteFile\", \"n8n-nodes-base.readBinaryFile\", \"n8n-nodes-base.readBinaryFiles\", \"n8n-nodes-base.writeBinaryFile\", \"n8n-nodes-base.ssh\", \"n8n-nodes-base.ftp\", \"n8n-nodes-base.localFileTrigger\", \"n8n-nodes-base.executeWorkflow\", \"n8n-nodes-base.executeWorkflowTrigger\", \"n8n-nodes-base.webhook\", \"n8n-nodes-base.n8n\", \"n8n-nodes-base.git\", \"n8n-nodes-base.function\", \"n8n-nodes-base.functionItem\"]",
+      "--entrypoint",
+      "sh",
+      "n8nio/n8n@sha256:bbf92723aa3eb7129fff2ca760b46aa1ff267779a462a37bc0a3fc8bf47bff8f",
+      "-c",
+      "n8n import:workflow --input=/in/workflow.json && n8n execute --id=apcJobberKpiAcc1 --rawOutput"
+    ],
+    [
+      "docker",
+      "logs",
+      "apc-mock-2544adb9e085"
+    ],
+    [
+      "docker",
+      "rm",
+      "-f",
+      "apc-n8n-2544adb9e085"
+    ],
+    [
+      "docker",
+      "rm",
+      "-f",
+      "apc-mock-2544adb9e085"
+    ]
+  ],
+  "runs": 2,
+  "mock_log": true,
+  "requests": {
+    "1": [
+      {
+        "method": "POST",
+        "path": "/graphql",
+        "cursor": null,
+        "table": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/graphql",
+        "cursor": "c2",
+        "table": null,
+        "status": 429
+      },
+      {
+        "method": "POST",
+        "path": "/graphql",
+        "cursor": null,
+        "table": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/graphql",
+        "cursor": "c2",
+        "table": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/graphql",
+        "cursor": "c3",
+        "table": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/invoices",
+        "cursor": null,
+        "table": "invoices",
+        "status": 201
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/invoices",
+        "cursor": null,
+        "table": "invoices",
+        "status": 201
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/invoices",
+        "cursor": null,
+        "table": "invoices",
+        "status": 201
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/invoices",
+        "cursor": null,
+        "table": "invoices",
+        "status": 201
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/invoices",
+        "cursor": null,
+        "table": "invoices",
+        "status": 400
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/kpi_weekly",
+        "cursor": null,
+        "table": "kpi_weekly",
+        "status": 201
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/kpi_weekly",
+        "cursor": null,
+        "table": "kpi_weekly",
+        "status": 201
+      }
+    ],
+    "2": [
+      {
+        "method": "POST",
+        "path": "/graphql",
+        "cursor": null,
+        "table": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/graphql",
+        "cursor": "c2",
+        "table": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/graphql",
+        "cursor": "c3",
+        "table": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/invoices",
+        "cursor": null,
+        "table": "invoices",
+        "status": 201
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/invoices",
+        "cursor": null,
+        "table": "invoices",
+        "status": 201
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/invoices",
+        "cursor": null,
+        "table": "invoices",
+        "status": 201
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/invoices",
+        "cursor": null,
+        "table": "invoices",
+        "status": 201
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/invoices",
+        "cursor": null,
+        "table": "invoices",
+        "status": 400
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/kpi_weekly",
+        "cursor": null,
+        "table": "kpi_weekly",
+        "status": 201
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/kpi_weekly",
+        "cursor": null,
+        "table": "kpi_weekly",
+        "status": 201
+      }
+    ]
+  },
+  "state_after": {
+    "1": {
+      "invoices": [
+        {
+          "client": "Acme",
+          "id": "INV-1",
+          "iso_week": "2026-W41",
+          "issued_at": "2026-10-05",
+          "status": "paid",
+          "total_cents": 120000
+        },
+        {
+          "client": "Beta",
+          "id": "INV-2",
+          "iso_week": "2026-W41",
+          "issued_at": "2026-10-06",
+          "status": "paid",
+          "total_cents": 45050
+        },
+        {
+          "client": "Acme",
+          "id": "INV-3",
+          "iso_week": "2026-W41",
+          "issued_at": "2026-10-07",
+          "status": "awaiting_payment",
+          "total_cents": 30000
+        },
+        {
+          "client": "Beta",
+          "id": "INV-5",
+          "iso_week": "2026-W42",
+          "issued_at": "2026-10-13",
+          "status": "paid",
+          "total_cents": 99999
+        }
+      ],
+      "kpi_weekly": [
+        {
+          "avg_paid_cents": 82525,
+          "invoices_open": 1,
+          "invoices_paid": 2,
+          "iso_week": "2026-W41",
+          "revenue_paid_cents": 165050
+        },
+        {
+          "avg_paid_cents": 99999,
+          "invoices_open": 0,
+          "invoices_paid": 1,
+          "iso_week": "2026-W42",
+          "revenue_paid_cents": 99999
+        }
+      ]
+    },
+    "2": {
+      "invoices": [
+        {
+          "client": "Acme",
+          "id": "INV-1",
+          "iso_week": "2026-W41",
+          "issued_at": "2026-10-05",
+          "status": "paid",
+          "total_cents": 120000
+        },
+        {
+          "client": "Beta",
+          "id": "INV-2",
+          "iso_week": "2026-W41",
+          "issued_at": "2026-10-06",
+          "status": "paid",
+          "total_cents": 45050
+        },
+        {
+          "client": "Acme",
+          "id": "INV-3",
+          "iso_week": "2026-W41",
+          "issued_at": "2026-10-07",
+          "status": "awaiting_payment",
+          "total_cents": 30000
+        },
+        {
+          "client": "Beta",
+          "id": "INV-5",
+          "iso_week": "2026-W42",
+          "issued_at": "2026-10-13",
+          "status": "paid",
+          "total_cents": 99999
+        }
+      ],
+      "kpi_weekly": [
+        {
+          "avg_paid_cents": 82525,
+          "invoices_open": 1,
+          "invoices_paid": 2,
+          "iso_week": "2026-W41",
+          "revenue_paid_cents": 165050
+        },
+        {
+          "avg_paid_cents": 99999,
+          "invoices_open": 0,
+          "invoices_paid": 1,
+          "iso_week": "2026-W42",
+          "revenue_paid_cents": 99999
+        }
+      ]
+    }
+  },
+  "log_parse_errors": 0,
+  "idempotent": true
+}
