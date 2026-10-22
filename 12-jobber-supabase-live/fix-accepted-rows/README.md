@@ -48,7 +48,7 @@ Each fixture's two inner runs shared one mock process. The mock injects a 429 on
 From the repository root:
 
 ```sh
-python3 -B -m unittest discover -s portfolio/12-jobber-supabase-live/fix-accepted-rows/tests -p 'test_*.py'
+python3 -B -m unittest discover -s 12-jobber-supabase-live/fix-accepted-rows/tests -p 'test_*.py'
 ```
 
 From inside this folder:
