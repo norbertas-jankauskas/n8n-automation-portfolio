@@ -55,7 +55,7 @@ The four writes and five independent table read-backs were recorded on **2026-10
 
 ## Known limitations
 
-- KPI calculation branches from validated input before database acceptance. It counts the rejected `INV-6` row in run 3; invoice and KPI writes are not atomic.
+- In the live runs above, KPI calculation branched from validated input before database acceptance, so it counted the rejected `INV-6` row in run 3. A follow-up fix computes KPIs only from accepted rows; it was proven against a local mock, not re-run against live Supabase — see [`fix-accepted-rows/`](./fix-accepted-rows).
 - Jobber is mocked; no real Jobber OAuth or API integration was exercised.
 - Proxy counts measure tunnels (CONNECTs), not HTTP operations within them.
 - The free Supabase project was deleted after testing, so the live database is no longer reachable.
