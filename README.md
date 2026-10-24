@@ -16,8 +16,9 @@ Self-taught n8n automation projects. Code was written by AI coding agents (Claud
 10. **[Lead Router](./10-lead-router)** — parses, normalizes, deduplicates, scores, and routes sample leads, with a separate report for parsing failures.
 11. **[Jobber to Supabase Weekly KPIs](./11-jobber-supabase-kpi)** — fetches mock invoices with pagination and retries, separates invalid records, and upserts invoice rows and weekly KPIs to a local mock API.
 12. **[Jobber to Supabase — live write](./12-jobber-supabase-live)** — writes synthetic invoice rows and weekly KPIs to real Supabase through a single-host egress proxy, with idempotency and constraint-failure evidence. A follow-up fix computes KPIs only from rows the database accepted (mock-verified).
+13. **[Airtable lead CRM — live write](./13-airtable-lead-crm)** — parses, deduplicates and scores synthetic leads, then upserts them by email into a real Airtable base through a single-host egress proxy, with idempotency and rejected-record evidence.
 
-**Projects 8–12:** Simulation of a common client request type. All data is synthetic, and external services are mocked. Executed in an isolated n8n 2.41.7 instance; evidence is in `evidence/`. Project 12 is the exception: it wrote to a real temporary Supabase project through a single-host egress proxy.
+**Projects 8–13:** Simulation of a common client request type. All data is synthetic, and external services are mocked. Executed in an isolated n8n 2.41.7 instance; evidence is in `evidence/`. Projects 12 and 13 are the exceptions: they wrote to a real temporary Supabase project and a real temporary Airtable base, each through a single-host egress proxy.
 
 Projects 8–11 were built through my AI Project Control (APC) pipeline (planning → AI coding agent → independent review → isolated execution), which is why their workflow names start with "APC sim".
 

@@ -1,0 +1,31 @@
+{
+  "leads": [
+    {
+      "Budget": 5000,
+      "Email": "ana@example.com",
+      "Lead ID": "L1",
+      "Name": "Ana",
+      "Score": 60,
+      "Source": "web",
+      "Tier": "hot"
+    },
+    {
+      "Budget": 800,
+      "Email": "ben@example.com",
+      "Lead ID": "L2",
+      "Name": "Ben",
+      "Score": 10,
+      "Source": "ads",
+      "Tier": "cold"
+    },
+    {
+      "Budget": 2500,
+      "Email": "dee@example.com",
+      "Lead ID": "L6",
+      "Name": "Dee",
+      "Score": 60,
+      "Source": "referral",
+      "Tier": "hot"
+    }
+  ]
+}
