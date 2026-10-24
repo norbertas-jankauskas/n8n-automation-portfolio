@@ -1,0 +1,9 @@
+{
+ "by_host": {
+  "api.airtable.com:443": {
+   "allow": 4,
+   "close": 4
+  }
+ },
+ "egress_allowed_only_target": true
+}
