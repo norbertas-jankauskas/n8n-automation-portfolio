@@ -1,0 +1,334 @@
+{
+  "name": "APC sim — lead router to CRM (local)",
+  "id": "apcLeadCrmLocal1",
+  "active": false,
+  "nodes": [
+    {
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "fetch-leads",
+      "name": "Fetch Leads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "http://127.0.0.1:5690/leads",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "split-leads",
+      "name": "Split Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return $input.first().json.leads.map((lead) => ({ json: { lead_id: lead.lead_id, raw: lead.raw } }));"
+      }
+    },
+    {
+      "id": "parse-payload",
+      "name": "Parse Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "const parsed = JSON.parse($json.raw);\nreturn { json: { lead_id: $json.lead_id, ...parsed } };"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "build-error-report",
+      "name": "Build Error Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        480
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return $input.all().map(({ json: { lead_id, raw, error } }) => ({ json: {\n  lead_id,\n  stage: 'parse',\n  reason: 'invalid_json',\n  error: String(error),\n  raw\n} }));"
+      }
+    },
+    {
+      "id": "validate-and-dedupe",
+      "name": "Validate & Dedupe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const seen = new Set();\nreturn $input.all().map(({ json: lead }) => {\n  const email = String(lead.email).trim().toLowerCase();\n  let reason = null;\n  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {\n    reason = 'invalid_email';\n  } else if (seen.has(email)) {\n    reason = 'duplicate';\n  } else {\n    seen.add(email);\n  }\n  const result = {\n    lead_id: lead.lead_id,\n    name: lead.name,\n    email,\n    budget: lead.budget,\n    source: lead.source,\n    valid: reason === null,\n    reason\n  };\n  if (!result.valid) result.tier = 'rejected';\n  return { json: result };\n});"
+      }
+    },
+    {
+      "id": "score",
+      "name": "Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return $input.all().map(({ json: lead }) => {\n  if (lead.tier === 'rejected') return { json: { ...lead, score: 0 } };\n  const budget_points = lead.budget >= 5000 ? 50 : lead.budget >= 2000 ? 30 : 10;\n  const source_points = lead.source === 'referral' ? 30 : lead.source === 'web' ? 10 : 0;\n  const score = budget_points + source_points;\n  const tier = score >= 60 ? 'hot' : score >= 30 ? 'warm' : 'cold';\n  return { json: { ...lead, budget_points, source_points, score, tier } };\n});"
+      }
+    },
+    {
+      "id": "accept-or-reject",
+      "name": "Accept or Reject",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1440,
+        0
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "tier-is-rejected",
+                    "leftValue": "={{ $json.tier }}",
+                    "rightValue": "rejected",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "rejected"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      }
+    },
+    {
+      "id": "collect-rejected",
+      "name": "Collect Rejected",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        480
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const leads = $input.all().map(({ json: lead }) => ({\n  lead_id: lead.lead_id,\n  email: lead.email,\n  reason: lead.reason\n}));\nreturn [{ json: { tier: 'rejected', count: leads.length, leads } }];"
+      }
+    },
+    {
+      "id": "upsert-lead",
+      "name": "Upsert Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1680,
+        0
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "http://127.0.0.1:5690/v0/appHNWJpExA6nWZks/tbly57I1Q5JJUyMlP",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ performUpsert: { fieldsToMergeOn: ['Email'] }, records: [ { fields: { 'Email': $json.email, 'Lead ID': $json.lead_id, 'Name': $json.name, 'Budget': $json.budget, 'Source': $json.source, 'Score': $json.score, 'Tier': $json.tier } } ] }) }}",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "summarize-crm",
+      "name": "Summarize CRM",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Count only representations returned by successful upserts.\nconst summary = { created: 0, updated: 0, by_tier: {}, emails: [] };\nfor (const { json: response } of $input.all()) {\n  summary.created += response.createdRecords.length;\n  summary.updated += response.updatedRecords.length;\n  for (const { fields } of response.records) {\n    summary.by_tier[fields.Tier] = (summary.by_tier[fields.Tier] ?? 0) + 1;\n    summary.emails.push(fields.Email);\n  }\n}\nsummary.emails.sort();\nreturn [{ json: summary }];"
+      }
+    },
+    {
+      "id": "build-upsert-error-report",
+      "name": "Build Upsert Error Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        240
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// HTTP error output retains the source item and attaches error metadata.\nreturn $input.all().map((item, index) => {\n  const error = item.json.error;\n  const original = item.json.lead_id ? item.json : $('Score').itemMatching(index).json;\n  const message = typeof error === 'string' ? error : String(error?.message ?? error?.description ?? 'upsert_failed');\n  const statusInMessage = /\\b([45]\\d{2})\\b/.exec(message);\n  return { json: {\n    stage: 'upsert',\n    lead_id: item.json.lead_id ?? original.lead_id,\n    email: item.json.email ?? original.email,\n    status: error?.statusCode ?? error?.httpCode ?? error?.status ?? item.json.statusCode ?? (statusInMessage ? Number(statusInMessage[1]) : null),\n    message: message,\n  } };\n});"
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Leads": {
+      "main": [
+        [
+          {
+            "node": "Split Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Leads": {
+      "main": [
+        [
+          {
+            "node": "Parse Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Payload": {
+      "main": [
+        [
+          {
+            "node": "Validate & Dedupe",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Dedupe": {
+      "main": [
+        [
+          {
+            "node": "Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score": {
+      "main": [
+        [
+          {
+            "node": "Accept or Reject",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accept or Reject": {
+      "main": [
+        [
+          {
+            "node": "Collect Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Upsert Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Lead": {
+      "main": [
+        [
+          {
+            "node": "Summarize CRM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Upsert Error Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

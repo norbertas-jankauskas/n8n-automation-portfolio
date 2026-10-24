@@ -1,0 +1,45 @@
+{
+ "Build Error Report": [
+  {
+   "error": "Unexpected token 'o', \"not json\" is not valid JSON [line 1]",
+   "lead_id": "L5",
+   "raw": "not json",
+   "reason": "invalid_json",
+   "stage": "parse"
+  }
+ ],
+ "Build Upsert Error Report": null,
+ "Collect Rejected": [
+  {
+   "count": 2,
+   "leads": [
+    {
+     "email": "ana@example.com",
+     "lead_id": "L3",
+     "reason": "duplicate"
+    },
+    {
+     "email": "cid@example",
+     "lead_id": "L4",
+     "reason": "invalid_email"
+    }
+   ],
+   "tier": "rejected"
+  }
+ ],
+ "Summarize CRM": [
+  {
+   "by_tier": {
+    "cold": 1,
+    "hot": 2
+   },
+   "created": 3,
+   "emails": [
+    "ana@example.com",
+    "ben@example.com",
+    "dee@example.com"
+   ],
+   "updated": 0
+  }
+ ]
+}
